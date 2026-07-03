@@ -5,6 +5,8 @@ export interface JobMatch {
   salary: string;
   url: string;
   match: number;
+  whyMatched: string[];
+  missingSkills: string[];
 }
 
 export interface Report {

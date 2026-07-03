@@ -53,7 +53,16 @@ Use this exact JSON structure:
       "location": "Hyderabad / Bengaluru",
       "salary": "₹25–40 LPA estimated",
       "url": "https://www.google.com/search?q=Operations+Manager+jobs+Hyderabad",
-      "match": 92
+      "match": 92,
+      "whyMatched": [
+        "Operations leadership experience",
+        "Google Ads and digital marketing background",
+        "Team management and process improvement experience"
+      ],
+      "missingSkills": [
+        "SQL",
+        "Agile project management"
+      ]
     },
     {
       "company": "Amazon",
@@ -61,7 +70,16 @@ Use this exact JSON structure:
       "location": "India / Remote",
       "salary": "₹22–38 LPA estimated",
       "url": "https://www.google.com/search?q=Program+Manager+jobs+India",
-      "match": 88
+      "match": 88,
+      "whyMatched": [
+        "Strong operations and program management exposure",
+        "Experience handling performance metrics",
+        "Cross-functional stakeholder experience"
+      ],
+      "missingSkills": [
+        "Advanced Excel",
+        "Program roadmap ownership"
+      ]
     },
     {
       "company": "DoorDash",
@@ -69,7 +87,16 @@ Use this exact JSON structure:
       "location": "Remote / India",
       "salary": "₹20–35 LPA estimated",
       "url": "https://www.google.com/search?q=DoorDash+Operations+Lead+jobs",
-      "match": 85
+      "match": 85,
+      "whyMatched": [
+        "People leadership and frontline operations experience",
+        "Quality improvement and coaching background",
+        "Relevant customer operations experience"
+      ],
+      "missingSkills": [
+        "Workforce management tools",
+        "Vendor operations analytics"
+      ]
     }
   ]
 }`,
@@ -101,12 +128,34 @@ Use this exact JSON structure:
       roast: data.roast || "No roast generated.",
       strengths: Array.isArray(data.strengths) ? data.strengths : [],
       weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
-      missingKeywords: Array.isArray(data.missingKeywords) ? data.missingKeywords : [],
-      improvedSummary: data.improvedSummary || "No improved summary generated.",
-      rewrittenBullets: Array.isArray(data.rewrittenBullets) ? data.rewrittenBullets : [],
-      optimizedSkills: Array.isArray(data.optimizedSkills) ? data.optimizedSkills : [],
-      interviewQuestions: Array.isArray(data.interviewQuestions) ? data.interviewQuestions : [],
-      jobMatches: Array.isArray(data.jobMatches) ? data.jobMatches : [],
+      missingKeywords: Array.isArray(data.missingKeywords)
+        ? data.missingKeywords
+        : [],
+      improvedSummary:
+        data.improvedSummary || "No improved summary generated.",
+      rewrittenBullets: Array.isArray(data.rewrittenBullets)
+        ? data.rewrittenBullets
+        : [],
+      optimizedSkills: Array.isArray(data.optimizedSkills)
+        ? data.optimizedSkills
+        : [],
+      interviewQuestions: Array.isArray(data.interviewQuestions)
+        ? data.interviewQuestions
+        : [],
+      jobMatches: Array.isArray(data.jobMatches)
+        ? data.jobMatches.map((job: any) => ({
+            company: job.company || "Company",
+            role: job.role || "Recommended Role",
+            location: job.location || "India / Remote",
+            salary: job.salary || "Salary not listed",
+            url: job.url || "https://www.google.com/search?q=jobs",
+            match: Number(job.match) || 80,
+            whyMatched: Array.isArray(job.whyMatched) ? job.whyMatched : [],
+            missingSkills: Array.isArray(job.missingSkills)
+              ? job.missingSkills
+              : [],
+          }))
+        : [],
     });
   } catch (error) {
     console.error("AI analysis error:", error);
