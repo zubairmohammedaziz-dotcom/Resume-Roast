@@ -19,6 +19,33 @@ const companyLogos: Record<string, string> = {
 export default function JobMatches({ jobs }: Props) {
   if (!jobs || jobs.length === 0) return null;
 
+  function handleTailor(job: JobMatch) {
+    const jobDescription = `
+Company: ${job.company}
+Role: ${job.role}
+Location: ${job.location}
+Salary: ${job.salary}
+
+Why this role matches:
+${(job.whyMatched || []).map((item) => `- ${item}`).join("\n")}
+
+Skills to include or improve:
+${(job.missingSkills || []).map((item) => `- ${item}`).join("\n")}
+
+Create a tailored ATS resume for this role.
+`;
+
+    window.dispatchEvent(
+      new CustomEvent("tailor-job", {
+        detail: jobDescription,
+      })
+    );
+
+    document
+      .getElementById("tailor-resume-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
       <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-center">
@@ -61,9 +88,7 @@ export default function JobMatches({ jobs }: Props) {
                     </h3>
 
                     <p className="mt-2 text-gray-400">{job.location}</p>
-                    <p className="mt-1 font-bold text-green-400">
-                      {job.salary}
-                    </p>
+                    <p className="mt-1 font-bold text-green-400">{job.salary}</p>
                   </div>
                 </div>
 
@@ -127,9 +152,7 @@ export default function JobMatches({ jobs }: Props) {
                 </a>
 
                 <button
-                  onClick={() =>
-                    alert("Next feature: AI will tailor your resume for this specific job.")
-                  }
+                  onClick={() => handleTailor(job)}
                   className="rounded-xl border border-zinc-700 px-5 py-3 font-bold text-white transition hover:bg-zinc-800"
                 >
                   Tailor Resume

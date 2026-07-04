@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import JobMatches from "../components/JobMatches";
+import TailorResume from "../components/TailorResume";
 import type { Report } from "../types/report";
 import {
   CircularProgressbar,
@@ -397,6 +398,7 @@ function ReportSection({
       />
 
       <JobMatches jobs={report.jobMatches || []} />
+      <TailorResume report={report} />
 
       <div className="mt-10 rounded-2xl border border-zinc-800 bg-black p-6 text-center">
         <p className="text-sm font-bold uppercase tracking-widest text-gray-500">
