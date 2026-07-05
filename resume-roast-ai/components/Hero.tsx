@@ -4,7 +4,7 @@ export default function Hero() {
       <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/20 blur-3xl" />
       <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-green-500/10 blur-3xl" />
 
-      <div className="relative mx-auto max-w-5xl">
+      <div className="relative mx-auto max-w-6xl">
         <p className="text-xs font-black uppercase tracking-[0.45em] text-orange-400">
           Resume Roast AI
         </p>
@@ -27,7 +27,7 @@ export default function Hero() {
             href="#resume-analyzer"
             className="rounded-2xl bg-orange-500 px-8 py-4 text-sm font-black text-black transition hover:scale-105 hover:bg-orange-400"
           >
-            🚀 Analyze My Resume
+            Analyze Resume Free
           </a>
 
           <a

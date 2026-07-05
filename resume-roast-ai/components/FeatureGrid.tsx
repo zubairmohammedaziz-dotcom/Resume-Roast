@@ -1,36 +1,45 @@
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  FileText,
+  Mail,
+  Sparkles,
+  Target,
+} from "lucide-react";
+
 const features = [
   {
-    icon: "📄",
+    icon: FileText,
     title: "Resume Roast",
     description:
       "Get a detailed AI review of your resume with actionable feedback on formatting, content, and recruiter appeal.",
   },
   {
-    icon: "🎯",
+    icon: Target,
     title: "ATS Optimization",
     description:
       "Identify missing keywords and optimize your resume to pass Applicant Tracking Systems.",
   },
   {
-    icon: "✍️",
+    icon: Sparkles,
     title: "AI Resume Tailoring",
     description:
       "Tailor your resume to any job description in seconds with AI-powered rewriting.",
   },
   {
-    icon: "💼",
+    icon: Mail,
     title: "Cover Letter Generator",
     description:
       "Generate personalized cover letters that match the role and highlight your strengths.",
   },
   {
-    icon: "🎤",
+    icon: BriefcaseBusiness,
     title: "Interview Preparation",
     description:
       "Practice AI-generated interview questions based on your resume and the target job description.",
   },
   {
-    icon: "📊",
+    icon: BarChart3,
     title: "Job Match Analysis",
     description:
       "Understand how closely your resume matches a job and what you need to improve before applying.",
@@ -62,24 +71,28 @@ export default function FeatureGrid() {
       </div>
 
       <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {features.map((feature) => (
-          <div
-            key={feature.title}
-            className="group rounded-3xl border border-zinc-800 bg-zinc-900 p-8 transition duration-300 hover:-translate-y-2 hover:border-orange-500 hover:shadow-[0_20px_60px_rgba(249,115,22,.15)]"
-          >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 text-3xl">
-              {feature.icon}
+        {features.map((feature) => {
+          const Icon = feature.icon;
+
+          return (
+            <div
+              key={feature.title}
+              className="group rounded-3xl border border-zinc-800 bg-zinc-900 p-8 transition duration-300 hover:-translate-y-2 hover:border-orange-500 hover:shadow-[0_20px_60px_rgba(249,115,22,.15)]"
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10">
+                <Icon className="h-8 w-8 text-orange-400" />
+              </div>
+
+              <h3 className="mt-6 text-2xl font-bold text-white group-hover:text-orange-400">
+                {feature.title}
+              </h3>
+
+              <p className="mt-4 leading-7 text-zinc-400">
+                {feature.description}
+              </p>
             </div>
-
-            <h3 className="mt-6 text-2xl font-bold text-white group-hover:text-orange-400">
-              {feature.title}
-            </h3>
-
-            <p className="mt-4 leading-7 text-zinc-400">
-              {feature.description}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

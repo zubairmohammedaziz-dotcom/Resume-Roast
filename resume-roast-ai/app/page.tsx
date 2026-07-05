@@ -1,5 +1,5 @@
 "use client";
-
+import Navbar from "../components/Navbar";
 import { useState } from "react";
 import Hero from "../components/Hero";
 import FeatureGrid from "../components/FeatureGrid";
@@ -240,7 +240,8 @@ ${report.jobMatches
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <Navbar />
+     <div className="mx-auto max-w-[1500px] px-6 py-8">
         <Hero />
 
         <FeatureGrid />
