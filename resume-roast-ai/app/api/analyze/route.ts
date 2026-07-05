@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import openai from "@/public/lib/openai";
-
+import openai from "../../../lib/openai";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
