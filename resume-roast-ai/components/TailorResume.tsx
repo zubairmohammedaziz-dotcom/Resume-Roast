@@ -6,6 +6,8 @@ import { downloadResumePdf } from "../lib/pdfResume";
 import InterviewPrep from "./InterviewPrep";
 import ResumePreview from "./ResumePreview";
 import WorkflowSteps from "./WorkflowSteps";
+import ATSDashboard from "./ATSDashboard";
+import ResumeToolbar from "./ResumeToolbar";
 
 type Props = {
   report: Report;
@@ -120,21 +122,27 @@ export default function TailorResume({ report }: Props) {
       <WorkflowSteps activeStep={4} />
 
       <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
-        <div className="flex items-center justify-between gap-5">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
           <div>
-            <h2 className="text-3xl font-black text-orange-400">
-              🎯 AI Resume Tailoring Studio
+            <p className="text-xs font-bold uppercase tracking-[0.35em] text-orange-400">
+              Resume Roast Studio
+            </p>
+
+            <h2 className="mt-3 text-4xl font-black text-white">
+              🎯 AI Resume Tailoring
             </h2>
 
-            <p className="mt-2 text-zinc-400">
-              Paste any job description and let AI rewrite your resume for
-              maximum ATS score.
+            <p className="mt-3 max-w-2xl text-zinc-400">
+              Paste any job description and Resume Roast will rewrite your
+              resume into a recruiter-ready, ATS-optimized version.
             </p>
           </div>
 
-          <div className="rounded-xl border border-green-500 bg-green-500/10 px-5 py-3 text-center">
-            <p className="text-xs text-green-300">Estimated ATS</p>
-            <p className="text-3xl font-black text-green-400">
+          <div className="rounded-2xl border border-green-500 bg-green-500/10 px-6 py-5 text-center">
+            <p className="text-xs font-bold uppercase tracking-widest text-green-300">
+              Estimated ATS
+            </p>
+            <p className="mt-2 text-4xl font-black text-green-400">
               {tailoredScore}%
             </p>
           </div>
@@ -144,48 +152,47 @@ export default function TailorResume({ report }: Props) {
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           placeholder="Paste Job Description Here..."
-          className="mt-8 min-h-[220px] w-full rounded-2xl border border-zinc-700 bg-black p-5 text-white outline-none focus:border-orange-500"
+          className="mt-8 min-h-[220px] w-full rounded-2xl border border-zinc-700 bg-black p-5 text-white outline-none transition focus:border-orange-500"
         />
 
         <button
           onClick={handleTailor}
           disabled={loading}
-          className="mt-6 rounded-xl bg-orange-500 px-8 py-3 font-bold text-black transition hover:bg-orange-400 disabled:opacity-60"
+          className="mt-6 rounded-xl bg-orange-500 px-8 py-3 font-black text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "✨ Tailoring Resume..." : "✨ Tailor Resume"}
         </button>
 
+        {loading && (
+          <div className="mt-6 rounded-2xl border border-zinc-700 bg-black p-5">
+            <p className="font-bold text-orange-400">
+              Resume Roast is working...
+            </p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Reading the job description, finding ATS keywords, rewriting your
+              summary, improving bullets, and preparing interview material.
+            </p>
+            <div className="mt-4 h-3 overflow-hidden rounded-full bg-zinc-800">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-orange-500" />
+            </div>
+          </div>
+        )}
+
         {result && (
           <>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
-              <div className="rounded-2xl border border-green-500 bg-green-500/10 p-6 text-center">
-                <p className="text-zinc-300">ATS Score</p>
-                <p className="mt-3 text-5xl font-black text-green-400">
-                  {tailoredScore}
-                </p>
-              </div>
+            <ATSDashboard
+              score={tailoredScore}
+              keywordCount={result.tailoredSkills.length}
+            />
 
-              <div className="rounded-2xl border border-orange-500 bg-orange-500/10 p-6 text-center">
-                <p className="text-zinc-300">Keywords Added</p>
-                <p className="mt-3 text-5xl font-black text-orange-400">
-                  {result.tailoredSkills.length}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-cyan-500 bg-cyan-500/10 p-6 text-center">
-                <p className="text-zinc-300">Resume Ready</p>
-                <p className="mt-3 text-4xl font-black text-cyan-400">YES</p>
-              </div>
-            </div>
-
-            <div className="mt-12 flex items-center justify-between">
+            <div className="mt-12 flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <h2 className="text-3xl font-black text-green-400">
                   📄 AI Optimized Resume
                 </h2>
 
                 <p className="mt-1 text-sm text-zinc-400">
-                  Recruiter-ready ATS resume generated by Resume Roast AI
+                  Recruiter-ready ATS resume generated by Resume Roast.
                 </p>
               </div>
 
@@ -204,43 +211,33 @@ export default function TailorResume({ report }: Props) {
               skills={result.tailoredSkills}
             />
 
-            <div className="mt-8 flex flex-wrap gap-4">
-              <button
-                onClick={downloadTailoredResume}
-                className="rounded-xl bg-green-500 px-6 py-3 font-bold text-black"
-              >
-                ⬇ Download PDF
-              </button>
-
-              <button
-                onClick={() => copyText(result.tailoredSummary)}
-                className="rounded-xl border border-zinc-700 px-6 py-3 font-bold text-white"
-              >
-                📋 Copy Summary
-              </button>
-
-              <button
-                onClick={printResume}
-                className="rounded-xl border border-zinc-700 px-6 py-3 font-bold text-white"
-              >
-                🖨 Print Resume
-              </button>
-
-              {result.coverLetter && (
-                <button
-                  onClick={downloadCoverLetter}
-                  className="rounded-xl border border-zinc-700 px-6 py-3 font-bold text-white"
-                >
-                  📄 Download Cover Letter
-                </button>
-              )}
-            </div>
+            <ResumeToolbar
+              onDownloadResume={downloadTailoredResume}
+              onCopySummary={() => copyText(result.tailoredSummary)}
+              onPrintResume={printResume}
+              onDownloadCoverLetter={downloadCoverLetter}
+              hasCoverLetter={!!result.coverLetter}
+            />
 
             {result.coverLetter && (
-              <div className="mt-10 rounded-2xl border border-zinc-700 p-6">
-                <h2 className="text-2xl font-black text-orange-400">
-                  Cover Letter
-                </h2>
+              <div className="mt-10 rounded-2xl border border-zinc-700 bg-black p-6">
+                <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                  <div>
+                    <h2 className="text-2xl font-black text-orange-400">
+                      ✉ Cover Letter
+                    </h2>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Personalized for the pasted job description.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => copyText(result.coverLetter)}
+                    className="rounded-xl border border-zinc-700 px-5 py-2 text-sm font-bold text-white hover:bg-zinc-800"
+                  >
+                    📋 Copy Cover Letter
+                  </button>
+                </div>
 
                 <p className="mt-5 whitespace-pre-line leading-8 text-zinc-300">
                   {result.coverLetter}
