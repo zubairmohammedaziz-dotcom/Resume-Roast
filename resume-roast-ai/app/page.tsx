@@ -1,4 +1,6 @@
 "use client";
+
+import JobRecommendations from "../components/JobRecommendations";
 import Navbar from "../components/Navbar";
 import { useState } from "react";
 import Hero from "../components/Hero";
@@ -15,6 +17,8 @@ import {
 import "react-circular-progressbar/dist/styles.css";
 
 export default function Home() {
+  const [jobRecommendations, setJobRecommendations] = useState<any[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState("");
   const [report, setReport] = useState<Report | null>(null);
@@ -30,6 +34,7 @@ export default function Home() {
       setIsLoading(true);
       setStatus("AI recruiter is sharpening the red pen...");
       setReport(null);
+      setJobRecommendations([]);
 
       const formData = new FormData();
       formData.append("resume", selectedFile);
@@ -46,7 +51,7 @@ export default function Home() {
         return;
       }
 
-      setReport({
+      const reportData: Report = {
         success: true,
         message: data.message || "Resume analyzed successfully!",
         fileName: data.fileName || selectedFile.name,
@@ -71,7 +76,33 @@ export default function Home() {
           ? data.interviewQuestions
           : [],
         jobMatches: Array.isArray(data.jobMatches) ? data.jobMatches : [],
-      });
+      };
+
+      setReport(reportData);
+
+      setJobsLoading(true);
+
+      try {
+        const jobsResponse = await fetch("/api/jobs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            report: reportData,
+          }),
+        });
+
+        const jobs = await jobsResponse.json();
+
+        if (Array.isArray(jobs)) {
+          setJobRecommendations(jobs);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setJobsLoading(false);
+      }
 
       setStatus("Resume roasted successfully!");
     } catch (error) {
@@ -241,7 +272,8 @@ ${report.jobMatches
   return (
     <main className="min-h-screen bg-black text-white">
       <Navbar />
-     <div className="mx-auto max-w-[1500px] px-6 py-8">
+
+      <div className="mx-auto max-w-[1500px] px-6 py-8">
         <Hero />
 
         <FeatureGrid />
@@ -266,7 +298,7 @@ ${report.jobMatches
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <label className="cursor-pointer rounded-2xl bg-orange-500 px-8 py-4 font-black text-black transition hover:scale-105 hover:bg-orange-400">
-              🚀 Upload Resume
+              Upload Resume
               <input
                 type="file"
                 accept=".pdf,.doc,.docx"
@@ -278,6 +310,7 @@ ${report.jobMatches
                     setSelectedFile(file);
                     setStatus("");
                     setReport(null);
+                    setJobRecommendations([]);
                   }
                 }}
               />
@@ -287,7 +320,7 @@ ${report.jobMatches
               href="#features"
               className="rounded-2xl border border-zinc-700 bg-black px-8 py-4 font-black text-white transition hover:border-orange-500"
             >
-              Watch Demo
+              View Features
             </a>
           </div>
 
@@ -307,8 +340,14 @@ ${report.jobMatches
 
               {status && <p className="mt-5 text-orange-400">{status}</p>}
 
-              {isLoading && (
+              {(isLoading || jobsLoading) && (
                 <div className="mx-auto mt-6 h-8 w-8 animate-spin rounded-full border-4 border-zinc-700 border-t-orange-500" />
+              )}
+
+              {jobsLoading && (
+                <p className="mt-4 text-sm text-orange-400">
+                  Finding AI job recommendations...
+                </p>
               )}
             </div>
           )}
@@ -332,7 +371,13 @@ ${report.jobMatches
           )}
         </section>
 
-        {report && <ReportSection report={report} copyText={copyText} />}
+        {report && (
+          <ReportSection
+            report={report}
+            copyText={copyText}
+            jobRecommendations={jobRecommendations}
+          />
+        )}
 
         <Pricing />
 
@@ -345,9 +390,11 @@ ${report.jobMatches
 function ReportSection({
   report,
   copyText,
+  jobRecommendations,
 }: {
   report: Report;
   copyText: (text: string) => void;
+  jobRecommendations: any[];
 }) {
   return (
     <div className="mx-auto mt-16 max-w-7xl rounded-[2rem] border border-zinc-800 bg-zinc-950 p-6 text-left shadow-2xl md:p-10">
@@ -404,6 +451,15 @@ function ReportSection({
       />
 
       <JobMatches jobs={report.jobMatches || []} />
+
+      {jobRecommendations.length > 0 ? (
+        <div className="mt-8">
+          <h3 className="mb-5 text-2xl font-extrabold text-orange-400">
+            AI Job Recommendations
+          </h3>
+          <JobRecommendations jobs={jobRecommendations} />
+        </div>
+      ) : null}
 
       <TailorResume report={report} />
 
