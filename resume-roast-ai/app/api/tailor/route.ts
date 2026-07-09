@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import openai from "../../../lib/openai";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -7,55 +12,50 @@ export async function POST(req: NextRequest) {
 
     if (!report || !jobDescription) {
       return NextResponse.json(
-        { success: false, message: "Missing report or job description." },
+        { success: false, message: "Missing data" },
         { status: 400 }
       );
     }
 
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
-      input: `You are ResumeRoast AI.
+      input: `Return only valid JSON. No markdown.
 
-Create a tailored ATS resume for this job.
+Rewrite this resume for the target job.
 
-Use the candidate profile below:
+Resume:
 ${JSON.stringify(report)}
 
-Job Description:
+Target Job:
 ${jobDescription}
 
-Return ONLY JSON:
+JSON shape:
 {
-  "success": true,
-  "tailoredSummary": "",
-  "tailoredBullets": [],
-  "tailoredSkills": [],
-  "coverLetter": ""
+  "headline": "",
+  "summary": "",
+  "skills": [],
+  "experience": [],
+  "coverLetter": "",
+  "atsScore": 95
 }`,
     });
 
-    const cleaned = (response.output_text || "")
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
+    const text = response.output_text || "";
+    const jsonStart = text.indexOf("{");
+    const jsonEnd = text.lastIndexOf("}");
 
-    const data = JSON.parse(cleaned);
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("No JSON found in AI response");
+    }
 
-    return NextResponse.json({
-      success: true,
-      tailoredSummary: data.tailoredSummary || "",
-      tailoredBullets: Array.isArray(data.tailoredBullets)
-        ? data.tailoredBullets
-        : [],
-      tailoredSkills: Array.isArray(data.tailoredSkills)
-        ? data.tailoredSkills
-        : [],
-      coverLetter: data.coverLetter || "",
-    });
-  } catch (error) {
-    console.error("Tailor resume error:", error);
+    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+
+    return NextResponse.json(parsed);
+  } catch (err) {
+    console.error("Tailor API error:", err);
+
     return NextResponse.json(
-      { success: false, message: "Tailor resume failed." },
+      { success: false, message: "Failed to tailor resume" },
       { status: 500 }
     );
   }

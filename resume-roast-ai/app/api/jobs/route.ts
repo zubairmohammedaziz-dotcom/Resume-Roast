@@ -4,7 +4,6 @@ import openai from "../../../lib/openai";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
     const { report } = body;
 
     if (!report) {
@@ -25,39 +24,40 @@ ${JSON.stringify(report)}
 
 Recommend the best 5 jobs.
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON array. No markdown. No explanation.
 
 [
- {
-   "company":"",
-   "role":"",
-   "location":"",
-   "salary":"",
-   "match":95,
-   "whyMatched":[
-      "...",
-      "...",
-      "..."
-   ],
-   "missingSkills":[
-      "...",
-      "..."
-   ],
-   "url":"https://careers.google.com/jobs/results/"
- }
+  {
+    "company": "",
+    "role": "",
+    "location": "",
+    "salary": "",
+    "match": 95,
+    "whyMatched": ["", "", ""],
+    "missingSkills": ["", ""],
+    "url": "https://careers.google.com/jobs/results/"
+  }
 ]
-`
+`,
     });
 
-    const text = response.output_text;
+    const text = response.output_text || "";
 
-    return NextResponse.json(JSON.parse(text));
+    const jsonStart = text.indexOf("[");
+    const jsonEnd = text.lastIndexOf("]");
 
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("No JSON array found in AI response");
+    }
+
+    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+
+    return NextResponse.json(parsed);
   } catch (error) {
-    console.error(error);
+    console.error("Jobs API error:", error);
 
     return NextResponse.json(
-      { success: false },
+      { success: false, message: "Failed to generate jobs." },
       { status: 500 }
     );
   }

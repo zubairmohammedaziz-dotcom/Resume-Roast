@@ -69,10 +69,10 @@ export default function TailorResume({ report }: Props) {
 
       const data = await response.json();
 
-      if (!data.success) {
-        alert(data.message || "Failed to tailor resume.");
-        return;
-      }
+    if (!response.ok) {
+  alert(data.message || "Failed to tailor resume.");
+  return;
+}
 
       setResult(data);
     } catch (error) {
