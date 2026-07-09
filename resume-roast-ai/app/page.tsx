@@ -79,6 +79,19 @@ export default function Home() {
       };
 
       setReport(reportData);
+      const savedReports = JSON.parse(localStorage.getItem("resumeReports") || "[]");
+
+const newSavedReport = {
+  id: Date.now().toString(),
+  resumeName: selectedFile?.name || "Untitled Resume",
+  createdAt: new Date().toISOString(),
+  report: reportData,
+};
+
+localStorage.setItem(
+  "resumeReports",
+  JSON.stringify([newSavedReport, ...savedReports])
+);
 
       setJobsLoading(true);
 

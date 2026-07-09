@@ -157,6 +157,30 @@ Create a tailored ATS resume for this role.
                 >
                   Tailor Resume
                 </button>
+                <button
+  onClick={() => {
+    const saved = JSON.parse(localStorage.getItem("savedJobs") || "[]");
+
+    const exists = saved.find(
+      (item: any) =>
+        item.company === job.company &&
+        item.role === job.role
+    );
+
+    if (!exists) {
+      localStorage.setItem(
+        "savedJobs",
+        JSON.stringify([...saved, job])
+      );
+      alert("Job saved!");
+    } else {
+      alert("Already saved.");
+    }
+  }}
+  className="rounded-xl bg-green-600 px-5 py-3 font-bold text-white hover:bg-green-500"
+>
+  ❤️ Save Job
+</button>
               </div>
             </div>
           );

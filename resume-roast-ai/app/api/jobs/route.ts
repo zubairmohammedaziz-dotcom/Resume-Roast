@@ -43,7 +43,7 @@ Return ONLY valid JSON in this format:
       "...",
       "..."
    ],
-   "url":"https://www.google.com/search?q=<role>+jobs"
+   "url":"https://careers.google.com/jobs/results/"
  }
 ]
 `
