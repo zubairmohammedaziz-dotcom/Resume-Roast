@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import openai from "../../../lib/openai";
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("resume") as File | null;
 
     if (!file) {
-      return NextResponse.json({
-        success: false,
-        message: "No resume uploaded.",
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: "No resume uploaded.",
+        },
+        { status: 400 }
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -23,87 +27,97 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "input_text",
-              text: `You are ResumeRoast AI, a strict recruiter, ATS expert, resume rewrite specialist, and job matching assistant.
+              text: `
+You are Resume Roast AI, an ATS expert, recruiter, resume writer,
+and career-matching assistant.
 
-Analyze the attached resume.
+Analyze only the attached resume.
 
-Return ONLY raw JSON. No markdown. No explanation. No code block.
+Important rules:
+- Do not reuse information from any previous candidate.
+- Extract the candidate's actual name from the attached resume.
+- Do not invent a name.
+- Do not default to Zubair Mohammed or any other example name.
+- Recommend roles based only on this candidate's experience, skills,
+  education, seniority, and career background.
+- Do not automatically recommend Operations Manager, Program Manager,
+  Google, Amazon, or DoorDash.
+- Recommend junior roles for junior candidates.
+- Recommend management roles only when the resume supports that seniority.
+- Job matches are career recommendations, not confirmed live vacancies.
+- Return only valid raw JSON.
+- Do not return markdown, explanations, or code fences.
 
-Use this exact JSON structure:
+Return exactly this JSON structure:
+
 {
   "success": true,
   "message": "Resume analyzed successfully!",
   "fileName": "${file.name}",
+  "candidateName": "Candidate's actual full name",
+  "headline": "Accurate professional headline based on the resume",
   "atsScore": 75,
   "recruiterScore": 70,
   "hiringProbability": "Medium",
   "roast": "A direct, useful, slightly funny recruiter roast.",
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "weaknesses": ["weakness 1", "weakness 2", "weakness 3"],
-  "missingKeywords": ["keyword 1", "keyword 2", "keyword 3"],
-  "improvedSummary": "A stronger rewritten professional summary.",
-  "rewrittenBullets": ["bullet 1", "bullet 2", "bullet 3"],
-  "optimizedSkills": ["skill 1", "skill 2", "skill 3"],
-  "interviewQuestions": ["question 1", "question 2", "question 3"],
+  "strengths": [
+    "Resume-specific strength",
+    "Resume-specific strength",
+    "Resume-specific strength"
+  ],
+  "weaknesses": [
+    "Resume-specific weakness",
+    "Resume-specific weakness",
+    "Resume-specific weakness"
+  ],
+  "missingKeywords": [
+    "Relevant missing keyword",
+    "Relevant missing keyword",
+    "Relevant missing keyword"
+  ],
+  "improvedSummary": "A stronger professional summary based only on the resume.",
+  "rewrittenBullets": [
+    "Improved resume bullet",
+    "Improved resume bullet",
+    "Improved resume bullet"
+  ],
+  "optimizedSkills": [
+    "Relevant skill",
+    "Relevant skill",
+    "Relevant skill"
+  ],
+  "interviewQuestions": [
+    "Resume-specific interview question",
+    "Resume-specific interview question",
+    "Resume-specific interview question"
+  ],
   "jobMatches": [
     {
-      "company": "Google",
-      "role": "Operations Manager",
-      "location": "Hyderabad / Bengaluru",
-      "salary": "₹25–40 LPA estimated",
-      "url": "https://www.google.com/search?q=Operations+Manager+jobs+Hyderabad",
-      "match": 92,
-      "whyMatched": [
-        "Operations leadership experience",
-        "Google Ads and digital marketing background",
-        "Team management and process improvement experience"
-      ],
-      "missingSkills": [
-        "SQL",
-        "Agile project management"
-      ]
-    },
-    {
-      "company": "Amazon",
-      "role": "Program Manager",
+      "company": "Relevant employer category",
+      "role": "Relevant recommended role",
       "location": "India / Remote",
-      "salary": "₹22–38 LPA estimated",
-      "url": "https://www.google.com/search?q=Program+Manager+jobs+India",
-      "match": 88,
+      "salary": "Realistic estimated salary range",
+      "match": 80,
       "whyMatched": [
-        "Strong operations and program management exposure",
-        "Experience handling performance metrics",
-        "Cross-functional stakeholder experience"
+        "Specific reason from this resume",
+        "Specific reason from this resume",
+        "Specific reason from this resume"
       ],
       "missingSkills": [
-        "Advanced Excel",
-        "Program roadmap ownership"
-      ]
-    },
-    {
-      "company": "DoorDash",
-      "role": "Operations Lead",
-      "location": "Remote / India",
-      "salary": "₹20–35 LPA estimated",
-      "url": "https://www.google.com/search?q=DoorDash+Operations+Lead+jobs",
-      "match": 85,
-      "whyMatched": [
-        "People leadership and frontline operations experience",
-        "Quality improvement and coaching background",
-        "Relevant customer operations experience"
-      ],
-      "missingSkills": [
-        "Workforce management tools",
-        "Vendor operations analytics"
+        "Relevant missing skill",
+        "Relevant missing skill"
       ]
     }
   ]
-}`,
+}
+`,
             },
             {
               type: "input_file",
               filename: file.name,
-              file_data: `data:${file.type || "application/pdf"};base64,${base64}`,
+              file_data: `data:${
+                file.type || "application/pdf"
+              };base64,${base64}`,
             },
           ],
         },
@@ -111,50 +125,113 @@ Use this exact JSON structure:
     });
 
     const cleanedText = (response.output_text || "")
-      .replace(/```json/g, "")
+      .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
 
-    const data = JSON.parse(cleanedText);
+    const jsonStart = cleanedText.indexOf("{");
+    const jsonEnd = cleanedText.lastIndexOf("}");
+
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      console.error("Invalid analysis response:", cleanedText);
+      throw new Error("No valid JSON object found");
+    }
+
+    const data = JSON.parse(
+      cleanedText.slice(jsonStart, jsonEnd + 1)
+    );
+
+    const jobMatches = Array.isArray(data.jobMatches)
+      ? data.jobMatches.slice(0, 5).map((job: any) => {
+          const role =
+            typeof job.role === "string" && job.role.trim()
+              ? job.role.trim()
+              : "Relevant Job Opportunity";
+
+          const location =
+            typeof job.location === "string" && job.location.trim()
+              ? job.location.trim()
+              : "India / Remote";
+
+          const searchQuery = encodeURIComponent(
+            `${role} jobs ${location}`
+          );
+
+          return {
+            company:
+              typeof job.company === "string" && job.company.trim()
+                ? job.company.trim()
+                : "Relevant Employer",
+            role,
+            location,
+            salary:
+              typeof job.salary === "string" && job.salary.trim()
+                ? job.salary.trim()
+                : "Salary varies by employer",
+            url: `https://www.linkedin.com/jobs/search/?keywords=${searchQuery}`,
+            match:
+              typeof job.match === "number"
+                ? Math.min(95, Math.max(45, Math.round(job.match)))
+                : 60,
+            whyMatched: Array.isArray(job.whyMatched)
+              ? job.whyMatched.slice(0, 3)
+              : [],
+            missingSkills: Array.isArray(job.missingSkills)
+              ? job.missingSkills.slice(0, 3)
+              : [],
+          };
+        })
+      : [];
 
     return NextResponse.json({
       success: true,
       message: data.message || "Resume analyzed successfully!",
-      fileName: data.fileName || file.name,
+      fileName: file.name,
+
+      candidateName:
+        typeof data.candidateName === "string"
+          ? data.candidateName.trim()
+          : "",
+
+      headline:
+        typeof data.headline === "string"
+          ? data.headline.trim()
+          : "Professional Candidate",
+
       atsScore: Number(data.atsScore) || 0,
       recruiterScore: Number(data.recruiterScore) || 0,
       hiringProbability: data.hiringProbability || "Medium",
       roast: data.roast || "No roast generated.",
-      strengths: Array.isArray(data.strengths) ? data.strengths : [],
-      weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+
+      strengths: Array.isArray(data.strengths)
+        ? data.strengths
+        : [],
+
+      weaknesses: Array.isArray(data.weaknesses)
+        ? data.weaknesses
+        : [],
+
       missingKeywords: Array.isArray(data.missingKeywords)
         ? data.missingKeywords
         : [],
+
       improvedSummary:
-        data.improvedSummary || "No improved summary generated.",
+        data.improvedSummary ||
+        "No improved summary generated.",
+
       rewrittenBullets: Array.isArray(data.rewrittenBullets)
         ? data.rewrittenBullets
         : [],
+
       optimizedSkills: Array.isArray(data.optimizedSkills)
         ? data.optimizedSkills
         : [],
+
       interviewQuestions: Array.isArray(data.interviewQuestions)
         ? data.interviewQuestions
         : [],
-      jobMatches: Array.isArray(data.jobMatches)
-        ? data.jobMatches.map((job: any) => ({
-            company: job.company || "Company",
-            role: job.role || "Recommended Role",
-            location: job.location || "India / Remote",
-            salary: job.salary || "Salary not listed",
-            url: job.url || "https://www.google.com/search?q=jobs",
-            match: Number(job.match) || 80,
-            whyMatched: Array.isArray(job.whyMatched) ? job.whyMatched : [],
-            missingSkills: Array.isArray(job.missingSkills)
-              ? job.missingSkills
-              : [],
-          }))
-        : [],
+
+      jobMatches,
     });
   } catch (error) {
     console.error("AI analysis error:", error);
