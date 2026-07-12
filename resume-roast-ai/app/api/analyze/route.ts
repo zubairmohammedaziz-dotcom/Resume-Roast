@@ -54,8 +54,8 @@ Return exactly this JSON structure:
   "success": true,
   "message": "Resume analyzed successfully!",
   "fileName": "${file.name}",
-  "candidateName": "Candidate's actual full name",
-  "headline": "Accurate professional headline based on the resume",
+ "name": "Candidate Full Name",
+ "headline": "Candidate Headline",
   "atsScore": 75,
   "recruiterScore": 70,
   "hiringProbability": "Medium",
@@ -187,12 +187,12 @@ Return exactly this JSON structure:
       success: true,
       message: data.message || "Resume analyzed successfully!",
       fileName: file.name,
+      
 
       candidateName:
-        typeof data.candidateName === "string"
-          ? data.candidateName.trim()
-          : "",
-
+        typeof data.name === "string"
+  ? data.name.trim()
+  : "",
       headline:
         typeof data.headline === "string"
           ? data.headline.trim()
