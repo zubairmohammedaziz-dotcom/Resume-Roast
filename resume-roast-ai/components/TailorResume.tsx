@@ -121,7 +121,10 @@ export default function TailorResume({ report }: Props) {
     <>
       <WorkflowSteps activeStep={4} />
 
-      <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
+      <div
+  id="tailor-resume-section"
+  className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl"
+>
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.35em] text-orange-400">
@@ -149,6 +152,7 @@ export default function TailorResume({ report }: Props) {
         </div>
 
         <textarea
+  id="job-description"
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
           placeholder="Paste Job Description Here..."

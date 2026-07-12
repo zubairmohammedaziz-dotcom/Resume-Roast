@@ -68,8 +68,11 @@ Create a tailored ATS resume for this role.
     }, 2000);
 
     setTimeout(() => {
-      const textarea = section.querySelector("textarea");
-      textarea?.focus();
+     const textarea = document.getElementById(
+  "job-description"
+) as HTMLTextAreaElement | null;
+
+textarea?.focus();
     }, 700);
   }, 150);
 }
