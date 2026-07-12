@@ -19,8 +19,8 @@ const companyLogos: Record<string, string> = {
 export default function JobMatches({ jobs }: Props) {
   if (!jobs || jobs.length === 0) return null;
 
-  function handleTailor(job: JobMatch) {
-    const jobDescription = `
+ function handleTailor(job: JobMatch) {
+  const jobDescription = `
 Company: ${job.company}
 Role: ${job.role}
 Location: ${job.location}
@@ -35,16 +35,44 @@ ${(job.missingSkills || []).map((item) => `- ${item}`).join("\n")}
 Create a tailored ATS resume for this role.
 `;
 
-    window.dispatchEvent(
-      new CustomEvent("tailor-job", {
-        detail: jobDescription,
-      })
+  window.dispatchEvent(
+    new CustomEvent("tailor-job", {
+      detail: jobDescription,
+    })
+  );
+
+  setTimeout(() => {
+    const section = document.getElementById("tailor-resume-section");
+
+    if (!section) return;
+
+    section.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    section.classList.add(
+      "ring-4",
+      "ring-orange-500",
+      "ring-offset-4",
+      "ring-offset-black"
     );
 
-    document
-      .getElementById("tailor-resume-section")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+    setTimeout(() => {
+      section.classList.remove(
+        "ring-4",
+        "ring-orange-500",
+        "ring-offset-4",
+        "ring-offset-black"
+      );
+    }, 2000);
+
+    setTimeout(() => {
+      const textarea = section.querySelector("textarea");
+      textarea?.focus();
+    }, 700);
+  }, 150);
+}
 
   return (
     <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
