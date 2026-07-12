@@ -99,6 +99,21 @@ export default function Home() {
   interviewQuestions: Array.isArray(data.interviewQuestions)
     ? data.interviewQuestions
     : [],
+    experience: Array.isArray(data.experience)
+  ? data.experience
+  : [],
+
+education: Array.isArray(data.education)
+  ? data.education
+  : [],
+
+certifications: Array.isArray(data.certifications)
+  ? data.certifications
+  : [],
+
+projects: Array.isArray(data.projects)
+  ? data.projects
+  : [],
 
   jobMatches: Array.isArray(data.jobMatches)
     ? data.jobMatches

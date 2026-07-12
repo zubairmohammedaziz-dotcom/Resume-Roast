@@ -1,4 +1,20 @@
-export interface JobMatch {
+export type ResumeExperience = {
+  jobTitle: string;
+  company: string;
+  duration: string;
+  bullets: string[];
+};
+
+export type ResumeEducation = {
+  degree: string;
+  college: string;
+  year: string;
+};
+
+export type ResumeProject = {
+  title: string;
+  description: string;
+};export interface JobMatch {
   company: string;
   role: string;
   location: string;
@@ -31,6 +47,10 @@ headline: string;
   rewrittenBullets: string[];
   optimizedSkills: string[];
   interviewQuestions: string[];
+  experience: ResumeExperience[];
+education: ResumeEducation[];
+certifications: string[];
+projects: ResumeProject[];
 
   jobMatches: JobMatch[];
 }

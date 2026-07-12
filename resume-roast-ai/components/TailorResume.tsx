@@ -14,10 +14,35 @@ type Props = {
 };
 
 type TailoredResult = {
+  candidateName?: string;
+  headline?: string;
+
   tailoredSummary: string;
   tailoredBullets: string[];
   tailoredSkills: string[];
+
+  experience?: {
+    jobTitle?: string;
+    company?: string;
+    duration?: string;
+    bullets?: string[];
+  }[];
+
+  education?: {
+    degree?: string;
+    college?: string;
+    year?: string;
+  }[];
+
+  certifications?: string[];
+
+  projects?: {
+    title?: string;
+    description?: string;
+  }[];
+
   coverLetter: string;
+  tailoredScore?: number;
 };
 
 export default function TailorResume({ report }: Props) {
@@ -209,13 +234,17 @@ function downloadTailoredResume() {
               </div>
             </div>
 
-            <ResumePreview
-              name={candidateName}
-              headline={headline}
-              summary={result.tailoredSummary}
-              bullets={result.tailoredBullets}
-              skills={result.tailoredSkills}
-            />
+           <ResumePreview
+  name={result.candidateName || candidateName}
+  headline={result.headline || headline}
+  summary={result.tailoredSummary}
+  bullets={result.tailoredBullets}
+  skills={result.tailoredSkills}
+  experience={result.experience || []}
+  education={result.education || []}
+  certifications={result.certifications || []}
+  projects={result.projects || []}
+/>
 
             <ResumeToolbar
               onDownloadResume={downloadTailoredResume}
