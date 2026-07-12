@@ -31,6 +31,12 @@ export interface Report {
   fileName: string;
   candidateName: string;
 headline: string;
+contact: {
+  email: string;
+  phone: string;
+  location: string;
+  linkedin: string;
+};
 
   atsScore: number;
   recruiterScore: number;

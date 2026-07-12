@@ -19,6 +19,12 @@ type ProjectItem = {
 type Props = {
   name?: string;
   headline?: string;
+  contact?: {
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+};
   summary: string;
   bullets: string[];
   skills: string[];
@@ -32,6 +38,7 @@ type Props = {
 export default function ResumePreview({
   name = "Candidate Name",
   headline = "Professional Candidate",
+  contact = {},
   summary,
   bullets,
   skills,
@@ -51,15 +58,31 @@ export default function ResumePreview({
   return (
     <div className="mt-8 overflow-x-auto rounded-3xl bg-zinc-900 p-10">
       <div className="mx-auto w-[850px] rounded-lg bg-white p-16 text-slate-950 shadow-2xl">
-        <header className="border-b-2 border-slate-900 pb-6 text-center">
-          <h1 className="text-4xl font-black uppercase tracking-[0.08em]">
-            {name}
-          </h1>
+       <header className="border-b-2 border-slate-900 pb-6 text-center">
+  <h1 className="text-4xl font-black uppercase tracking-[0.08em]">
+    {name}
+  </h1>
 
-          <p className="mt-3 text-sm font-semibold text-slate-700">
-            {headline}
-          </p>
-        </header>
+  <p className="mt-3 text-sm font-semibold text-slate-700">
+    {headline}
+  </p>
+
+  {(contact?.location ||
+    contact?.email ||
+    contact?.phone ||
+    contact?.linkedin) && (
+    <p className="mt-2 text-xs text-slate-600">
+      {[
+        contact.location,
+        contact.email,
+        contact.phone,
+        contact.linkedin,
+      ]
+        .filter(Boolean)
+        .join(" • ")}
+    </p>
+  )}
+</header>
 
         <section className="mt-8">
           <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">

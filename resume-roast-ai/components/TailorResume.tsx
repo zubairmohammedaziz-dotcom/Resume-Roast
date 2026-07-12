@@ -112,11 +112,15 @@ function downloadTailoredResume() {
   if (!result) return;
 
   downloadResumePdf({
-    candidateName,
-    headline,
+    candidateName: result.candidateName || candidateName,
+    headline: result.headline || headline,
     tailoredSummary: result.tailoredSummary,
     tailoredBullets: result.tailoredBullets,
     tailoredSkills: result.tailoredSkills,
+    experience: result.experience || [],
+    education: result.education || [],
+    certifications: result.certifications || [],
+    projects: result.projects || [],
   });
 }
 
@@ -244,6 +248,7 @@ function downloadTailoredResume() {
   education={result.education || []}
   certifications={result.certifications || []}
   projects={result.projects || []}
+  contact={report.contact}
 />
 
             <ResumeToolbar

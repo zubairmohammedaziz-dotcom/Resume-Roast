@@ -221,6 +221,33 @@ Return exactly this JSON structure:
         typeof data.headline === "string"
           ? data.headline.trim()
           : "Professional Candidate",
+ 
+contact:
+  data.contact && typeof data.contact === "object"
+    ? {
+        email:
+          typeof data.contact.email === "string"
+            ? data.contact.email.trim()
+            : "",
+        phone:
+          typeof data.contact.phone === "string"
+            ? data.contact.phone.trim()
+            : "",
+        location:
+          typeof data.contact.location === "string"
+            ? data.contact.location.trim()
+            : "",
+        linkedin:
+          typeof data.contact.linkedin === "string"
+            ? data.contact.linkedin.trim()
+            : "",
+      }
+    : {
+        email: "",
+        phone: "",
+        location: "",
+        linkedin: "",
+      },
 
       atsScore: Number(data.atsScore) || 0,
       recruiterScore: Number(data.recruiterScore) || 0,
