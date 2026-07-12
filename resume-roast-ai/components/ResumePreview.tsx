@@ -19,12 +19,14 @@ type ProjectItem = {
 type Props = {
   name?: string;
   headline?: string;
+
   contact?: {
-  email?: string;
-  phone?: string;
-  location?: string;
-  linkedin?: string;
-};
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+  };
+
   summary: string;
   bullets: string[];
   skills: string[];
@@ -47,7 +49,7 @@ export default function ResumePreview({
   certifications = [],
   projects = [],
 }: Props) {
-  const hasStructuredExperience = experience.some(
+  const structuredExperience = experience.filter(
     (item) =>
       item?.jobTitle ||
       item?.company ||
@@ -55,186 +57,220 @@ export default function ResumePreview({
       item?.bullets?.length
   );
 
+  const contactItems = [
+    contact.location,
+    contact.email,
+    contact.phone,
+    contact.linkedin,
+  ].filter((item): item is string => Boolean(item?.trim()));
+
   return (
-    <div className="mt-8 overflow-x-auto rounded-3xl bg-zinc-900 p-10">
-      <div className="mx-auto w-[850px] rounded-lg bg-white p-16 text-slate-950 shadow-2xl">
-       <header className="border-b-2 border-slate-900 pb-6 text-center">
-  <h1 className="text-4xl font-black uppercase tracking-[0.08em]">
-    {name}
-  </h1>
+    <div className="mt-5 overflow-x-auto rounded-[1.5rem] border border-white/10 bg-[#111111] p-3 sm:p-5 lg:p-7">
+      <article
+        id="resume-preview"
+        className="resume-preview mx-auto min-h-[1120px] w-[794px] bg-white px-[58px] py-[52px] text-slate-900 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+      >
+        <header className="border-b border-slate-300 pb-6 text-center">
+          <h1 className="text-[30px] font-semibold uppercase tracking-[0.08em] text-slate-950">
+            {name}
+          </h1>
 
-  <p className="mt-3 text-sm font-semibold text-slate-700">
-    {headline}
-  </p>
-
-  {(contact?.location ||
-    contact?.email ||
-    contact?.phone ||
-    contact?.linkedin) && (
-    <p className="mt-2 text-xs text-slate-600">
-      {[
-        contact.location,
-        contact.email,
-        contact.phone,
-        contact.linkedin,
-      ]
-        .filter(Boolean)
-        .join(" • ")}
-    </p>
-  )}
-</header>
-
-        <section className="mt-8">
-          <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-            Professional Summary
-          </h2>
-
-          <p className="mt-4 text-sm leading-7 text-slate-800">
-            {summary || "Summary not available."}
+          <p className="mt-2 text-[13px] font-medium text-slate-600">
+            {headline}
           </p>
-        </section>
 
-        <section className="mt-8">
-          <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-            Professional Experience
-          </h2>
+          {contactItems.length > 0 && (
+            <p className="mx-auto mt-3 max-w-[650px] text-[10.5px] leading-5 text-slate-500">
+              {contactItems.join("  •  ")}
+            </p>
+          )}
+        </header>
 
-          {hasStructuredExperience ? (
-            <div className="mt-5 space-y-8">
-              {experience.map((item, index) => (
-                <div key={`${item.company}-${item.jobTitle}-${index}`}>
-                  <div className="flex items-start justify-between gap-6">
-                    <div>
-                      {item.jobTitle && (
-                        <h3 className="text-base font-black text-slate-950">
-                          {item.jobTitle}
-                        </h3>
-                      )}
+        <ResumeSection title="Professional Summary">
+          <p className="text-[11.5px] leading-[1.75] text-slate-700">
+            {summary || "Professional summary not available."}
+          </p>
+        </ResumeSection>
 
-                      {item.company && (
-                        <p className="mt-1 text-sm font-semibold text-slate-700">
-                          {item.company}
+        <ResumeSection title="Professional Experience">
+          {structuredExperience.length > 0 ? (
+            <div className="space-y-7">
+              {structuredExperience.map((item, index) => {
+                const itemBullets = Array.isArray(item.bullets)
+                  ? item.bullets.filter(Boolean)
+                  : [];
+
+                return (
+                  <section
+                    key={`${item.company}-${item.jobTitle}-${index}`}
+                    className="break-inside-avoid"
+                  >
+                    <div className="flex items-start justify-between gap-8">
+                      <div className="min-w-0">
+                        {item.jobTitle && (
+                          <h3 className="text-[12px] font-semibold text-slate-950">
+                            {item.jobTitle}
+                          </h3>
+                        )}
+
+                        {item.company && (
+                          <p className="mt-1 text-[10.5px] font-medium text-slate-600">
+                            {item.company}
+                          </p>
+                        )}
+                      </div>
+
+                      {item.duration && (
+                        <p className="shrink-0 pt-0.5 text-right text-[9.5px] font-medium text-slate-500">
+                          {item.duration}
                         </p>
                       )}
                     </div>
 
-                    {item.duration && (
-                      <p className="shrink-0 text-xs font-bold text-slate-500">
-                        {item.duration}
-                      </p>
+                    {itemBullets.length > 0 && (
+                      <ul className="mt-3 space-y-2 pl-4 text-[10.5px] leading-[1.65] text-slate-700">
+                        {itemBullets.map((bullet, bulletIndex) => (
+                          <li
+                            key={`${bullet}-${bulletIndex}`}
+                            className="list-disc pl-1 marker:text-slate-500"
+                          >
+                            {bullet}
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </div>
-
-                  {item.bullets?.length ? (
-                    <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-800">
-                      {item.bullets.map((bullet, bulletIndex) => (
-                        <li key={`${bullet}-${bulletIndex}`}>{bullet}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ))}
+                  </section>
+                );
+              })}
             </div>
           ) : (
-            <ul className="mt-5 list-disc space-y-3 pl-5 text-sm leading-7 text-slate-800">
-              {bullets?.length ? (
+            <ul className="space-y-2 pl-4 text-[10.5px] leading-[1.65] text-slate-700">
+              {bullets.length > 0 ? (
                 bullets.map((bullet, index) => (
-                  <li key={`${bullet}-${index}`}>{bullet}</li>
+                  <li
+                    key={`${bullet}-${index}`}
+                    className="list-disc pl-1 marker:text-slate-500"
+                  >
+                    {bullet}
+                  </li>
                 ))
               ) : (
-                <li>Experience highlights not available.</li>
+                <li className="list-disc">Experience details not available.</li>
               )}
             </ul>
           )}
-        </section>
+        </ResumeSection>
 
-        <section className="mt-8">
-          <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-            Core Skills
-          </h2>
-
-          <p className="mt-4 text-sm leading-7 text-slate-800">
-            {skills?.length ? skills.join(" • ") : "Skills not available."}
-          </p>
-        </section>
+        {skills.length > 0 && (
+          <ResumeSection title="Core Skills">
+            <div className="flex flex-wrap gap-x-2 gap-y-2">
+              {skills.map((skill, index) => (
+                <span
+                  key={`${skill}-${index}`}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[9.5px] font-medium text-slate-700"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </ResumeSection>
+        )}
 
         {projects.length > 0 && (
-          <section className="mt-8">
-            <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-              Projects
-            </h2>
-
-            <div className="mt-5 space-y-5">
+          <ResumeSection title="Projects">
+            <div className="space-y-5">
               {projects.map((project, index) => (
-                <div key={`${project.title}-${index}`}>
+                <section
+                  key={`${project.title}-${index}`}
+                  className="break-inside-avoid"
+                >
                   {project.title && (
-                    <h3 className="text-base font-black text-slate-950">
+                    <h3 className="text-[11.5px] font-semibold text-slate-950">
                       {project.title}
                     </h3>
                   )}
 
                   {project.description && (
-                    <p className="mt-2 text-sm leading-7 text-slate-800">
+                    <p className="mt-1.5 text-[10.5px] leading-[1.65] text-slate-700">
                       {project.description}
                     </p>
                   )}
-                </div>
+                </section>
               ))}
             </div>
-          </section>
+          </ResumeSection>
         )}
 
         {certifications.length > 0 && (
-          <section className="mt-8">
-            <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-              Certifications
-            </h2>
-
-            <ul className="mt-5 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-800">
+          <ResumeSection title="Certifications">
+            <ul className="space-y-2 pl-4 text-[10.5px] leading-[1.65] text-slate-700">
               {certifications.map((certification, index) => (
-                <li key={`${certification}-${index}`}>{certification}</li>
+                <li
+                  key={`${certification}-${index}`}
+                  className="list-disc pl-1 marker:text-slate-500"
+                >
+                  {certification}
+                </li>
               ))}
             </ul>
-          </section>
+          </ResumeSection>
         )}
 
         {education.length > 0 && (
-          <section className="mt-8">
-            <h2 className="border-b-2 border-orange-500 pb-2 text-sm font-black uppercase tracking-[0.16em]">
-              Education
-            </h2>
-
-            <div className="mt-5 space-y-5">
+          <ResumeSection title="Education">
+            <div className="space-y-5">
               {education.map((item, index) => (
-                <div
+                <section
                   key={`${item.degree}-${item.college}-${index}`}
-                  className="flex items-start justify-between gap-6"
+                  className="flex break-inside-avoid items-start justify-between gap-8"
                 >
-                  <div>
+                  <div className="min-w-0">
                     {item.degree && (
-                      <h3 className="text-base font-black text-slate-950">
+                      <h3 className="text-[11.5px] font-semibold text-slate-950">
                         {item.degree}
                       </h3>
                     )}
 
                     {item.college && (
-                      <p className="mt-1 text-sm font-semibold text-slate-700">
+                      <p className="mt-1 text-[10px] text-slate-600">
                         {item.college}
                       </p>
                     )}
                   </div>
 
                   {item.year && (
-                    <p className="shrink-0 text-xs font-bold text-slate-500">
+                    <p className="shrink-0 text-right text-[9.5px] font-medium text-slate-500">
                       {item.year}
                     </p>
                   )}
-                </div>
+                </section>
               ))}
             </div>
-          </section>
+          </ResumeSection>
         )}
-      </div>
+      </article>
     </div>
+  );
+}
+
+function ResumeSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-7 break-inside-avoid-page">
+      <div className="mb-4 flex items-center gap-4">
+        <h2 className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-950">
+          {title}
+        </h2>
+
+        <div className="h-px flex-1 bg-slate-300" />
+      </div>
+
+      {children}
+    </section>
   );
 }
