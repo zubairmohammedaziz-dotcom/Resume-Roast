@@ -47,6 +47,15 @@ Important rules:
 - Job matches are career recommendations, not confirmed live vacancies.
 - Return only valid raw JSON.
 - Do not return markdown, explanations, or code fences.
+Extract all available contact information from the uploaded resume.
+
+Rules:
+- Never invent contact information.
+- If a field is missing, return an empty string.
+- Preserve the original email exactly.
+- Preserve the original phone number exactly.
+- Preserve the LinkedIn URL if available.
+- Preserve the city, state, and country exactly as written in the resume.
 
 Return exactly this JSON structure:
 
@@ -56,6 +65,12 @@ Return exactly this JSON structure:
   "fileName": "${file.name}",
  "name": "Candidate Full Name",
  "headline": "Candidate Headline",
+ "contact": {
+  "email": "",
+  "phone": "",
+  "location": "",
+  "linkedin": ""
+},
   "atsScore": 75,
   "recruiterScore": 70,
   "hiringProbability": "Medium",
@@ -221,6 +236,8 @@ Return exactly this JSON structure:
         typeof data.headline === "string"
           ? data.headline.trim()
           : "Professional Candidate",
+
+
  
 contact:
   data.contact && typeof data.contact === "object"
