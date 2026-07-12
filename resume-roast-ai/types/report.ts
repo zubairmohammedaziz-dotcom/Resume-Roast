@@ -13,6 +13,8 @@ export interface Report {
   success: boolean;
   message: string;
   fileName: string;
+  candidateName: string;
+headline: string;
 
   atsScore: number;
   recruiterScore: number;

@@ -52,33 +52,58 @@ export default function Home() {
         return;
       }
 
-      const reportData: Report = {
-        success: true,
-        message: data.message || "Resume analyzed successfully!",
-        fileName: data.fileName || selectedFile.name,
-        atsScore: Number(data.atsScore) || 0,
-        recruiterScore: Number(data.recruiterScore) || 0,
-        hiringProbability: data.hiringProbability || "Medium",
-        roast: data.roast || "No recruiter roast generated.",
-        strengths: Array.isArray(data.strengths) ? data.strengths : [],
-        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
-        missingKeywords: Array.isArray(data.missingKeywords)
-          ? data.missingKeywords
-          : [],
-        improvedSummary:
-          data.improvedSummary || "No improved summary generated.",
-        rewrittenBullets: Array.isArray(data.rewrittenBullets)
-          ? data.rewrittenBullets
-          : [],
-        optimizedSkills: Array.isArray(data.optimizedSkills)
-          ? data.optimizedSkills
-          : [],
-        interviewQuestions: Array.isArray(data.interviewQuestions)
-          ? data.interviewQuestions
-          : [],
-        jobMatches: Array.isArray(data.jobMatches) ? data.jobMatches : [],
-      };
+     const reportData: Report = {
+  success: true,
+  message: data.message || "Resume analyzed successfully!",
+  fileName: data.fileName || selectedFile.name,
 
+  candidateName:
+    typeof data.candidateName === "string"
+      ? data.candidateName.trim()
+      : "",
+
+  headline:
+    typeof data.headline === "string"
+      ? data.headline.trim()
+      : "Professional Candidate",
+
+  atsScore: Number(data.atsScore) || 0,
+  recruiterScore: Number(data.recruiterScore) || 0,
+  hiringProbability: data.hiringProbability || "Medium",
+
+  roast: data.roast || "No recruiter roast generated.",
+
+  strengths: Array.isArray(data.strengths)
+    ? data.strengths
+    : [],
+
+  weaknesses: Array.isArray(data.weaknesses)
+    ? data.weaknesses
+    : [],
+
+  missingKeywords: Array.isArray(data.missingKeywords)
+    ? data.missingKeywords
+    : [],
+
+  improvedSummary:
+    data.improvedSummary || "No improved summary generated.",
+
+  rewrittenBullets: Array.isArray(data.rewrittenBullets)
+    ? data.rewrittenBullets
+    : [],
+
+  optimizedSkills: Array.isArray(data.optimizedSkills)
+    ? data.optimizedSkills
+    : [],
+
+  interviewQuestions: Array.isArray(data.interviewQuestions)
+    ? data.interviewQuestions
+    : [],
+
+  jobMatches: Array.isArray(data.jobMatches)
+    ? data.jobMatches
+    : [],
+};
       setReport(reportData);
       const savedReports = JSON.parse(localStorage.getItem("resumeReports") || "[]");
 
