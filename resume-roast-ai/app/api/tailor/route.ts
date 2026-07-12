@@ -146,27 +146,53 @@ Return exactly this JSON structure:
 
     const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
 
-    if (
-      typeof parsed.tailoredSummary !== "string" ||
-      !Array.isArray(parsed.tailoredBullets) ||
-      !Array.isArray(parsed.tailoredSkills) ||
-      typeof parsed.coverLetter !== "string"
-    ) {
-      console.error("Unexpected AI response structure:", parsed);
-      throw new Error("Invalid tailor response structure");
-    }
+ if (
+  typeof parsed.tailoredSummary !== "string" ||
+  !Array.isArray(parsed.experience) ||
+  !Array.isArray(parsed.tailoredSkills) ||
+  typeof parsed.coverLetter !== "string"
+) {
+  console.error("Unexpected AI response structure:", parsed);
+  throw new Error("Invalid tailor response structure");
+}
 
-    const tailoredBullets = parsed.tailoredBullets
-      .filter((item: unknown) => typeof item === "string")
-      .map((item: string) => item.trim())
-      .filter(Boolean)
-      .slice(0, 10);
+const experience = parsed.experience
+  .filter(
+    (item: unknown) =>
+      typeof item === "object" &&
+      item !== null
+  )
+  .map((item: any) => ({
+    jobTitle:
+      typeof item.jobTitle === "string"
+        ? item.jobTitle.trim()
+        : "",
+    company:
+      typeof item.company === "string"
+        ? item.company.trim()
+        : "",
+    duration:
+      typeof item.duration === "string"
+        ? item.duration.trim()
+        : "",
+    bullets: Array.isArray(item.bullets)
+      ? item.bullets
+          .filter((bullet: unknown) => typeof bullet === "string")
+          .map((bullet: string) => bullet.trim())
+          .filter(Boolean)
+          .slice(0, 10)
+      : [],
+  }));
 
-    const tailoredSkills = parsed.tailoredSkills
-      .filter((item: unknown) => typeof item === "string")
-      .map((item: string) => item.trim())
-      .filter(Boolean)
-      .slice(0, 18);
+const tailoredBullets = experience
+  .flatMap((item: { bullets: string[] }) => item.bullets)
+  .slice(0, 10);
+
+const tailoredSkills = parsed.tailoredSkills
+  .filter((item: unknown) => typeof item === "string")
+  .map((item: string) => item.trim())
+  .filter(Boolean)
+  .slice(0, 20);
 
    return NextResponse.json({
   success: true,
@@ -187,26 +213,11 @@ Return exactly this JSON structure:
       ? parsed.tailoredSummary.trim()
       : "",
 
-  tailoredBullets: Array.isArray(parsed.tailoredBullets)
-    ? parsed.tailoredBullets
-        .filter((item: unknown) => typeof item === "string")
-        .map((item: string) => item.trim())
-        .filter(Boolean)
-        .slice(0, 10)
-    : [],
+ tailoredBullets,
 
-  tailoredSkills: Array.isArray(parsed.tailoredSkills)
-    ? parsed.tailoredSkills
-        .filter((item: unknown) => typeof item === "string")
-        .map((item: string) => item.trim())
-        .filter(Boolean)
-        .slice(0, 20)
-    : [],
+tailoredSkills,
 
-  experience: Array.isArray(parsed.experience)
-    ? parsed.experience
-    : [],
-
+  experience,
   education: Array.isArray(parsed.education)
     ? parsed.education
     : [],
