@@ -64,45 +64,68 @@ TARGET JOB DESCRIPTION:
 ${jobDescription}
 
 STRICT RULES:
-- Use only facts supported by the resume analysis.
-- Never invent companies, job titles, dates, qualifications, certifications,
-  education, salaries, achievements, percentages, team sizes, or revenue.
-- Do not add metrics unless the resume analysis already contains those metrics.
-- Do not change the candidate's career history.
-- Align the wording with the target job description without misrepresentation.
-- Use strong action verbs.
-- Avoid generic claims, clichés, buzzwords, and repetitive sentences.
-- Keep the language professional and natural.
-- Include relevant ATS keywords only when they reasonably match the candidate.
-- The summary must be approximately 100 to 140 words.
-- Return 6 to 10 detailed resume bullets.
-- Each bullet should be specific, recruiter-friendly, and approximately
-  18 to 30 words.
-- Return 12 to 18 relevant skills.
-- The cover letter must use the candidate's actual name.
-- The cover letter must not invent the hiring manager's name.
+- Use only facts supported by the uploaded resume analysis.
+- Never invent percentages, KPIs, CSAT scores, SLA results, team sizes, revenue, promotions, awards, certifications, education, dates, tools, companies, job titles, or years of experience.
+- Do not add numbers unless the exact number already exists in the resume analysis.
+- Do not convert general responsibilities into fake achievements.
+- Keep every bullet factual, believable, and recruiter-safe.
+- Improve clarity, impact, ATS alignment, and wording only.
+- Use ATS keywords from the target job only when they genuinely fit the candidate’s background.
+- If evidence is missing, write a strong responsibility-based bullet without metrics.
+- Avoid clichés, buzzwords, exaggerated claims, and repetitive phrasing.
 - Return only valid JSON.
 - Do not use markdown or code fences.
 
 Return exactly this JSON structure:
 
 {
-  "candidateName": "${report.candidateName || ""}",
-  "headline": "A refined professional headline aligned with the target job",
-  "tailoredSummary": "A detailed 100 to 140 word professional summary",
-  "tailoredBullets": [
-    "Detailed recruiter-quality bullet based on the resume",
-    "Detailed recruiter-quality bullet based on the resume",
-    "Detailed recruiter-quality bullet based on the resume",
-    "Detailed recruiter-quality bullet based on the resume",
-    "Detailed recruiter-quality bullet based on the resume",
-    "Detailed recruiter-quality bullet based on the resume"
+{
+  "candidateName": "...",
+  "headline": "...",
+
+  "tailoredSummary": "...",
+
+  "experience": [
+    {
+      "jobTitle": "...",
+      "company": "...",
+      "duration": "...",
+      "bullets": [
+        "...",
+        "...",
+        "..."
+      ]
+    }
   ],
+
   "tailoredSkills": [
-    "Relevant skill"
+    "...",
+    "...",
+    "..."
   ],
-  "coverLetter": "A polished and personalized professional cover letter",
-  "tailoredScore": 92
+
+  "education": [
+    {
+      "degree": "...",
+      "college": "...",
+      "year": "..."
+    }
+  ],
+
+  "certifications": [
+    "..."
+  ],
+
+  "projects": [
+    {
+      "title": "...",
+      "description": "..."
+    }
+  ],
+
+  "coverLetter": "...",
+
+  "tailoredScore": 95
 }
 `,
     });
@@ -145,30 +168,67 @@ Return exactly this JSON structure:
       .filter(Boolean)
       .slice(0, 18);
 
-    return NextResponse.json({
-      success: true,
+   return NextResponse.json({
+  success: true,
 
-      candidateName:
-        typeof parsed.candidateName === "string" &&
-        parsed.candidateName.trim()
-          ? parsed.candidateName.trim()
-          : report.candidateName || "Candidate",
+  candidateName:
+    typeof parsed.candidateName === "string" &&
+    parsed.candidateName.trim()
+      ? parsed.candidateName.trim()
+      : report.candidateName || "Candidate",
 
-      headline:
-        typeof parsed.headline === "string" && parsed.headline.trim()
-          ? parsed.headline.trim()
-          : report.headline || "Professional Candidate",
+  headline:
+    typeof parsed.headline === "string" && parsed.headline.trim()
+      ? parsed.headline.trim()
+      : report.headline || "Professional Candidate",
 
-      tailoredSummary: parsed.tailoredSummary.trim(),
-      tailoredBullets,
-      tailoredSkills,
-      coverLetter: parsed.coverLetter.trim(),
+  tailoredSummary:
+    typeof parsed.tailoredSummary === "string"
+      ? parsed.tailoredSummary.trim()
+      : "",
 
-      tailoredScore:
-        typeof parsed.tailoredScore === "number"
-          ? Math.min(98, Math.max(70, Math.round(parsed.tailoredScore)))
-          : 90,
-    });
+  tailoredBullets: Array.isArray(parsed.tailoredBullets)
+    ? parsed.tailoredBullets
+        .filter((item: unknown) => typeof item === "string")
+        .map((item: string) => item.trim())
+        .filter(Boolean)
+        .slice(0, 10)
+    : [],
+
+  tailoredSkills: Array.isArray(parsed.tailoredSkills)
+    ? parsed.tailoredSkills
+        .filter((item: unknown) => typeof item === "string")
+        .map((item: string) => item.trim())
+        .filter(Boolean)
+        .slice(0, 20)
+    : [],
+
+  experience: Array.isArray(parsed.experience)
+    ? parsed.experience
+    : [],
+
+  education: Array.isArray(parsed.education)
+    ? parsed.education
+    : [],
+
+  certifications: Array.isArray(parsed.certifications)
+    ? parsed.certifications
+    : [],
+
+  projects: Array.isArray(parsed.projects)
+    ? parsed.projects
+    : [],
+
+  coverLetter:
+    typeof parsed.coverLetter === "string"
+      ? parsed.coverLetter.trim()
+      : "",
+
+  tailoredScore:
+    typeof parsed.tailoredScore === "number"
+      ? Math.min(98, Math.max(70, Math.round(parsed.tailoredScore)))
+      : 90,
+});
   } catch (error) {
     console.error("Tailor API error:", error);
 

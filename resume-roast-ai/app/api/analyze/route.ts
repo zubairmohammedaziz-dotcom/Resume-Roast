@@ -87,9 +87,33 @@ Return exactly this JSON structure:
     "Relevant skill"
   ],
   "interviewQuestions": [
-    "Resume-specific interview question",
-    "Resume-specific interview question",
-    "Resume-specific interview question"
+  "question 1",
+  "question 2",
+  "question 3"
+],
+
+"experience": [
+  {
+    "jobTitle": "",
+    "company": "",
+    "duration": "",
+    "bullets": []
+  }
+],
+
+"education": [
+  {
+    "degree": "",
+    "college": "",
+    "year": ""
+  }
+],
+
+"certifications": [],
+
+"projects": [],
+
+"jobMatches": [
   ],
   "jobMatches": [
     {
@@ -227,11 +251,28 @@ Return exactly this JSON structure:
         ? data.optimizedSkills
         : [],
 
-      interviewQuestions: Array.isArray(data.interviewQuestions)
-        ? data.interviewQuestions
-        : [],
+   interviewQuestions: Array.isArray(data.interviewQuestions)
+  ? data.interviewQuestions
+  : [],
 
-      jobMatches,
+experience: Array.isArray(data.experience)
+  ? data.experience
+  : [],
+
+education: Array.isArray(data.education)
+  ? data.education
+  : [],
+
+certifications: Array.isArray(data.certifications)
+  ? data.certifications
+  : [],
+
+projects: Array.isArray(data.projects)
+  ? data.projects
+  : [],
+
+jobMatches,
+
     });
   } catch (error) {
     console.error("AI analysis error:", error);
