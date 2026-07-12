@@ -83,15 +83,17 @@ export default function TailorResume({ report }: Props) {
     }
   }
 
-  function downloadTailoredResume() {
-    if (!result) return;
+function downloadTailoredResume() {
+  if (!result) return;
 
-    downloadResumePdf({
-      tailoredSummary: result.tailoredSummary,
-      tailoredBullets: result.tailoredBullets,
-      tailoredSkills: result.tailoredSkills,
-    });
-  }
+  downloadResumePdf({
+    candidateName,
+    headline,
+    tailoredSummary: result.tailoredSummary,
+    tailoredBullets: result.tailoredBullets,
+    tailoredSkills: result.tailoredSkills,
+  });
+}
 
   function downloadCoverLetter() {
     if (!result?.coverLetter) return;
