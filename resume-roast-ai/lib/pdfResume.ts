@@ -1,5 +1,3 @@
-import jsPDF from "jspdf";
-
 type PdfExperience = {
   jobTitle?: string;
   company?: string;
@@ -21,14 +19,23 @@ type PdfProject = {
 type PdfResumeData = {
   candidateName?: string;
   headline?: string;
+
+  contact?: {
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+  };
+
   tailoredSummary?: string;
   tailoredBullets?: string[];
   tailoredSkills?: string[];
+
   experience?: PdfExperience[];
   education?: PdfEducation[];
   certifications?: string[];
   projects?: PdfProject[];
-};
+};import jsPDF from "jspdf";
 
 function cleanText(value?: string) {
   return typeof value === "string" ? value.trim() : "";
@@ -52,6 +59,16 @@ export function downloadResumePdf(data: PdfResumeData) {
 
   const headline =
     cleanText(data.headline) || "Professional Candidate";
+    const contact = data.contact || {};
+
+const contactLine = [
+  contact.location,
+  contact.email,
+  contact.phone,
+  contact.linkedin,
+]
+  .filter(Boolean)
+  .join(" • ");
 
   const summary =
     cleanText(data.tailoredSummary) ||
@@ -197,6 +214,17 @@ export function downloadResumePdf(data: PdfResumeData) {
   });
 
   y += headlineLines.length * 4.8 + 5;
+  if (contactLine) {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(90, 90, 90);
+
+  doc.text(contactLine, pageWidth / 2, y, {
+    align: "center",
+  });
+
+  y += 6;
+}
 
   doc.setDrawColor(31, 41, 55);
   doc.setLineWidth(0.35);
