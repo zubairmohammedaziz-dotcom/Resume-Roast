@@ -702,40 +702,147 @@ function InterviewWorkspace({
 
 function ProcessingCard() {
   const steps = [
-    "Reading the target role",
-    "Matching skills and keywords",
-    "Rewriting experience",
-    "Preparing application materials",
-  ];
+    {
+      label: "Reading resume context",
+      description: "Reviewing experience, skills, and career history",
+      state: "complete",
+    },
+    {
+      label: "Matching ATS keywords",
+      description: "Comparing your profile with the target role",
+      state: "complete",
+    },
+    {
+      label: "Rewriting experience",
+      description: "Strengthening impact, clarity, and relevance",
+      state: "active",
+    },
+    {
+      label: "Preparing application assets",
+      description: "Building your cover letter and interview material",
+      state: "pending",
+    },
+  ] as const;
 
   return (
-    <div className="mt-5 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-4">
-      <div className="flex items-center gap-3">
-        <SpinnerIcon />
+    <section className="mt-5 overflow-hidden rounded-[1.35rem] border border-orange-500/20 bg-[#0b0b0b]">
+      <div className="border-b border-white/[0.08] bg-orange-500/[0.055] px-4 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+              <ProcessingIcon />
+            </span>
 
-        <p className="text-sm font-medium text-orange-300">
-          Resume Roast is working
-        </p>
-      </div>
+            <div>
+              <p className="text-sm font-medium text-white">
+                Building your targeted application
+              </p>
 
-      <div className="mt-4 space-y-3">
-        {steps.map((step, index) => (
-          <div
-            key={step}
-            className="flex items-center gap-3 text-xs text-zinc-500"
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                index === 0
-                  ? "animate-pulse bg-orange-400"
-                  : "bg-zinc-700"
-              }`}
-            />
-            {step}
+              <p className="mt-1 text-xs leading-5 text-zinc-600">
+                Resume Roast is aligning your resume with the selected role.
+              </p>
+            </div>
           </div>
-        ))}
+
+          <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-300">
+            Processing
+          </span>
+        </div>
+
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-900">
+          <div className="h-full w-3/4 animate-pulse rounded-full bg-orange-500" />
+        </div>
       </div>
-    </div>
+
+      <div className="space-y-1 p-3">
+        {steps.map((step) => {
+          const complete = step.state === "complete";
+          const active = step.state === "active";
+
+          return (
+            <div
+              key={step.label}
+              className={`flex gap-3 rounded-xl border px-3 py-3 transition ${
+                active
+                  ? "border-orange-500/20 bg-orange-500/[0.045]"
+                  : "border-transparent bg-transparent"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                  complete
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+                    : active
+                    ? "border-orange-500/30 bg-orange-500/10 text-orange-300"
+                    : "border-white/[0.08] bg-black/20 text-zinc-800"
+                }`}
+              >
+                {complete ? (
+                  <CheckStepIcon />
+                ) : active ? (
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-800" />
+                )}
+              </span>
+
+              <div>
+                <p
+                  className={`text-xs font-medium ${
+                    complete || active
+                      ? "text-zinc-300"
+                      : "text-zinc-700"
+                  }`}
+                >
+                  {step.label}
+                </p>
+
+                <p className="mt-1 text-[11px] leading-5 text-zinc-700">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ProcessingIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-4 w-4 animate-spin motion-reduce:animate-none"
+      aria-hidden="true"
+    >
+      <path
+        d="M21 12a9 9 0 1 1-3-6.7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CheckStepIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <path
+        d="m5 12 4 4L19 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
