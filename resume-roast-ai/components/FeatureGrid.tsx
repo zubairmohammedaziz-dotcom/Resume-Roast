@@ -1,54 +1,67 @@
 import {
   BarChart3,
   BriefcaseBusiness,
+  FileSearch,
   FileText,
   Mail,
   Target,
   WandSparkles,
 } from "lucide-react";
 
-const features = [
+const copilotSteps = [
   {
-    icon: FileText,
-    eyebrow: "Analyze",
-    title: "Resume intelligence",
+    step: "01",
+    icon: FileSearch,
+    eyebrow: "Understand",
+    title: "Profile intelligence",
     description:
-      "Understand how recruiters and ATS systems evaluate your resume before you apply.",
+      "See how recruiters and ATS systems interpret your experience, strengths and career positioning.",
+    outcome: "Know exactly what is holding you back.",
   },
   {
+    step: "02",
     icon: Target,
     eyebrow: "Improve",
-    title: "ATS optimization",
+    title: "Application strategy",
     description:
-      "Identify missing keywords, weak sections and opportunities to improve relevance.",
+      "Identify missing keywords, weak sections and the highest-impact improvements before applying.",
+    outcome: "Fix the gaps that reduce interview chances.",
   },
   {
+    step: "03",
+    icon: BriefcaseBusiness,
+    eyebrow: "Discover",
+    title: "Career opportunities",
+    description:
+      "Explore roles aligned with your actual experience, skills, seniority and career direction.",
+    outcome: "Focus on opportunities where you can compete.",
+  },
+  {
+    step: "04",
     icon: WandSparkles,
     eyebrow: "Tailor",
     title: "Targeted resume",
     description:
-      "Rewrite your summary, skills and experience for the role you want.",
+      "Rewrite your summary, skills and experience around the role you want without losing authenticity.",
+    outcome: "Submit a stronger resume for every role.",
   },
   {
-    icon: BriefcaseBusiness,
-    eyebrow: "Discover",
-    title: "Job matching",
-    description:
-      "Find roles aligned with your experience, seniority and career direction.",
-  },
-  {
+    step: "05",
     icon: Mail,
     eyebrow: "Apply",
-    title: "Cover letter",
+    title: "Application toolkit",
     description:
-      "Generate a focused letter that connects your background to the target role.",
+      "Create a focused cover letter that connects your background directly to the employer’s needs.",
+    outcome: "Apply faster without sounding generic.",
   },
   {
+    step: "06",
     icon: BarChart3,
     eyebrow: "Prepare",
-    title: "Interview preparation",
+    title: "Interview readiness",
     description:
-      "Practice questions generated from your resume and the job description.",
+      "Practice likely questions generated from your resume, strengths, weaknesses and target role.",
+    outcome: "Walk into interviews better prepared.",
   },
 ];
 
@@ -56,78 +69,172 @@ export default function FeatureGrid() {
   return (
     <section
       id="features"
-      className="mt-24 rounded-[2rem] border border-white/10 bg-[#0b0b0b] px-6 py-16 md:px-12 md:py-20"
+      aria-labelledby="features-title"
+      className="relative mt-24 overflow-hidden rounded-[2rem] border border-white/[0.09] bg-[#090909] px-5 py-16 shadow-[0_30px_100px_rgba(0,0,0,0.38)] sm:px-8 md:px-12 md:py-20"
     >
-      <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-400">
-            Complete workflow
-          </p>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+      >
+        <div className="absolute right-[-160px] top-[-180px] h-[420px] w-[420px] rounded-full bg-orange-500/[0.08] blur-[130px]" />
 
-          <h2 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white md:text-5xl">
-            Everything you need to submit a stronger application.
-          </h2>
-        </div>
-
-        <p className="max-w-2xl text-base leading-8 text-zinc-400 lg:justify-self-end">
-          Resume Roast turns scattered career tools into one guided workflow,
-          from the first upload to the final application.
-        </p>
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/35 to-transparent" />
       </div>
 
-      <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {features.map((feature) => {
-          const Icon = feature.icon;
+      <div className="relative">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.07] px-3.5 py-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
 
-          return (
-            <article
-              key={feature.title}
-              className="group rounded-[1.5rem] border border-white/10 bg-[#101010] p-6 transition duration-200 hover:-translate-y-1 hover:border-zinc-600 hover:bg-[#131313]"
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300">
+                AI Career Copilot
+              </p>
+            </div>
+
+            <h2
+              id="features-title"
+              className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.02] tracking-[-0.045em] text-white md:text-5xl lg:text-6xl"
             >
-              <div className="flex items-start justify-between gap-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-orange-400">
-                  <Icon className="h-5 w-5" strokeWidth={1.7} />
-                </div>
+              One intelligent workflow for your entire application journey.
+            </h2>
+          </div>
 
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-700">
-                  {feature.eyebrow}
-                </span>
+          <div className="lg:justify-self-end">
+            <p className="max-w-2xl text-base leading-8 text-zinc-400">
+              Resume Roast connects resume analysis, career discovery,
+              application tailoring and interview preparation so every step
+              improves the next.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <ValuePill label="Resume intelligence" />
+              <ValuePill label="Career matching" />
+              <ValuePill label="Application strategy" />
+              <ValuePill label="Interview readiness" />
+            </div>
+          </div>
+        </div>
+
+        <div className="relative mt-14">
+          <div
+            aria-hidden="true"
+            className="absolute bottom-10 left-[32px] top-10 hidden w-px bg-gradient-to-b from-orange-500/50 via-white/10 to-transparent xl:block"
+          />
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {copilotSteps.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <article
+                  key={feature.title}
+                  className="group relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-[#0d0d0d] p-6 transition duration-200 hover:-translate-y-1 hover:border-orange-500/25 hover:bg-[#111111] hover:shadow-[0_24px_70px_rgba(0,0,0,0.3)]"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/0 to-transparent transition group-hover:via-orange-500/40"
+                  />
+
+                  <div className="flex items-start justify-between gap-5">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/[0.07] text-orange-400">
+                      <Icon className="h-5 w-5" strokeWidth={1.7} />
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-700">
+                        Step {feature.step}
+                      </p>
+
+                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-300">
+                        {feature.eyebrow}
+                      </p>
+                    </div>
+                  </div>
+
+                  <h3 className="mt-6 text-xl font-semibold tracking-[-0.02em] text-white">
+                    {feature.title}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-7 text-zinc-500">
+                    {feature.description}
+                  </p>
+
+                  <div className="mt-6 rounded-xl border border-white/[0.07] bg-black/25 p-4">
+                    <div className="flex gap-3">
+                      <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-400">
+                        <CheckIcon />
+                      </span>
+
+                      <p className="text-xs leading-5 text-zinc-400">
+                        {feature.outcome}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-10 overflow-hidden rounded-[1.5rem] border border-orange-500/20 bg-orange-500/[0.055]">
+          <div className="grid gap-6 px-5 py-6 md:grid-cols-[1fr_auto] md:items-center md:px-7">
+            <div className="flex gap-4">
+              <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400 sm:flex">
+                <FileText className="h-5 w-5" strokeWidth={1.7} />
               </div>
 
-              <h3 className="mt-6 text-xl font-semibold tracking-tight text-white">
-                {feature.title}
-              </h3>
+              <div>
+                <p className="text-base font-semibold text-white">
+                  One resume upload. A complete career action plan.
+                </p>
 
-              <p className="mt-3 text-sm leading-7 text-zinc-500">
-                {feature.description}
-              </p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+                  Understand your profile, identify stronger opportunities,
+                  tailor your application and prepare for interviews without
+                  switching between disconnected tools.
+                </p>
+              </div>
+            </div>
 
-              <div className="mt-6 h-px w-full bg-white/5 transition group-hover:bg-orange-500/20" />
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="mt-10 flex flex-col justify-between gap-5 rounded-2xl border border-orange-500/20 bg-orange-500/[0.06] p-6 md:flex-row md:items-center">
-        <div>
-          <p className="font-medium text-white">
-            Start with one resume upload
-          </p>
-
-          <p className="mt-1 text-sm text-zinc-500">
-            Resume Roast guides you through every step after that.
-          </p>
+            <a
+              href="#resume-analyzer"
+              className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(249,115,22,0.14)] transition hover:bg-orange-400 hover:shadow-[0_0_38px_rgba(249,115,22,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090909]"
+            >
+              Start my free analysis
+              <ArrowRightIcon />
+            </a>
+          </div>
         </div>
-
-        <a
-          href="#resume-analyzer"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
-        >
-          Analyze resume
-          <ArrowRightIcon />
-        </a>
       </div>
     </section>
+  );
+}
+
+function ValuePill({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-white/[0.08] bg-white/[0.025] px-3 py-1.5 text-[11px] font-medium text-zinc-500">
+      {label}
+    </span>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-3 w-3"
+      aria-hidden="true"
+    >
+      <path
+        d="m6 12 4 4 8-9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -136,7 +243,7 @@ function ArrowRightIcon() {
     <svg
       viewBox="0 0 24 24"
       fill="none"
-      className="h-4 w-4"
+      className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
       aria-hidden="true"
     >
       <path
