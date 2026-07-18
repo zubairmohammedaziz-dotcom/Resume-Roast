@@ -1,117 +1,248 @@
 "use client";
 
-import { ArrowRight, Check, Sparkles } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  Crown,
+  Loader2,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from "lucide-react";
 
-const plans = [
+type Plan = {
+  name: "Free" | "Pro";
+  price: string;
+  period: string;
+  description: string;
+  features: Array<{
+    text: string;
+    included: boolean;
+    emphasis?: boolean;
+  }>;
+  buttonText: string;
+  highlight: boolean;
+};
+
+const plans: Plan[] = [
   {
     name: "Free",
     price: "₹0",
     period: "forever",
-    description: "Test the complete Resume Roast experience before upgrading.",
+    description:
+      "Explore the core experience and understand how competitive your resume is.",
     features: [
-      "3 Resume Analyses",
-      "ATS Score",
-      "3 AI Job Matches",
-      "Basic Resume Suggestions",
+      {
+        text: "1 complete resume analysis",
+        included: true,
+        emphasis: true,
+      },
+      {
+        text: "ATS and recruiter scores",
+        included: true,
+      },
+      {
+        text: "Resume strengths and weaknesses",
+        included: true,
+      },
+      {
+        text: "Up to 3 job matches",
+        included: true,
+      },
+      {
+        text: "AI resume tailoring",
+        included: false,
+      },
+      {
+        text: "AI cover letters",
+        included: false,
+      },
+      {
+        text: "Premium PDF export",
+        included: false,
+      },
+      {
+        text: "Resume history",
+        included: false,
+      },
     ],
-    buttonText: "Start Free",
+    buttonText: "Analyze My Resume Free",
     highlight: false,
   },
   {
     name: "Pro",
     price: "₹199",
     period: "per month",
-    description: "Everything you need to turn your resume into more interviews.",
+    description:
+      "Build stronger applications, tailor every resume and apply with an unfair advantage.",
     features: [
-      "Unlimited Resume Analyses",
-      "Unlimited Job Matches",
-      "AI Resume Tailoring",
-      "AI Cover Letters",
-      "Interview Preparation",
-      "Premium PDF Export",
-      "Resume History",
-      "Priority AI Processing",
+      {
+        text: "Unlimited resume analyses",
+        included: true,
+        emphasis: true,
+      },
+      {
+        text: "Unlimited live job matches",
+        included: true,
+      },
+      {
+        text: "AI resume tailoring for every role",
+        included: true,
+      },
+      {
+        text: "Personalized AI cover letters",
+        included: true,
+      },
+      {
+        text: "Premium ATS-ready PDF exports",
+        included: true,
+      },
+      {
+        text: "Resume and application history",
+        included: true,
+      },
+      {
+        text: "Priority AI processing",
+        included: true,
+      },
+      {
+        text: "Access to upcoming Pro features",
+        included: true,
+      },
     ],
-    buttonText: "Start Pro – ₹199/month",
+    buttonText: "Upgrade to Pro",
     highlight: true,
   },
 ];
 
 export default function Pricing() {
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+
   function scrollToAnalyzer() {
     document
       .getElementById("resume-analyzer")
-      ?.scrollIntoView({ behavior: "smooth" });
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-async function handleProClick() {
-  try {
-    const response = await fetch("/api/stripe/create-checkout-session", {
-      method: "POST",
-    });
+  async function handleProClick() {
+    if (checkoutLoading) return;
 
-    const { url } = await response.json();
+    setCheckoutLoading(true);
+    setCheckoutError("");
 
-    if (url) {
-      window.location.href = url;
-      return;
+    try {
+      const response = await fetch(
+        "/api/stripe/create-checkout-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = (await response.json()) as {
+        url?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to start checkout.");
+      }
+
+      if (!data.url) {
+        throw new Error("Stripe checkout URL was not returned.");
+      }
+
+      window.location.assign(data.url);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to start checkout. Please try again.";
+
+      console.error("Stripe checkout error:", error);
+      setCheckoutError(message);
+    } finally {
+      setCheckoutLoading(false);
     }
-
-    alert("Unable to start checkout.");
-  } catch (error) {
-    console.error(error);
-    alert("Unable to start checkout.");
   }
-}
 
   return (
     <section
       id="pricing"
-      className="relative mt-24 overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950 px-6 py-16 shadow-2xl shadow-black/40 md:px-12 md:py-20"
+      aria-labelledby="pricing-heading"
+      className="relative mt-24 overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950 px-5 py-16 shadow-2xl shadow-black/40 sm:px-6 md:px-12 md:py-20"
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/10 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+      >
+        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-orange-500/10 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-72 w-72 rounded-full bg-amber-500/[0.05] blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
       </div>
 
       <div className="relative">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.35em] text-orange-400">
-            Simple Pricing
-          </p>
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-orange-300">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            Simple, transparent pricing
+          </div>
 
-          <h2 className="mt-4 text-4xl font-black tracking-tight text-white md:text-5xl">
-            Start free. Upgrade when the job matters.
+          <h2
+            id="pricing-heading"
+            className="mt-5 text-4xl font-black tracking-tight text-white md:text-5xl"
+          >
+            Start free. Go Pro when you&apos;re ready to win.
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-zinc-400 md:text-lg">
-            Most resumes lose opportunities before a recruiter even sees them.
-            Resume Roast AI helps you fix the gaps, tailor faster, and apply with
-            confidence.
+            Understand your resume for free. Upgrade when you want tailored
+            applications, premium exports and unlimited career support.
           </p>
         </div>
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2">
           {plans.map((plan) => (
-            <div
+            <article
               key={plan.name}
               className={`relative flex h-full flex-col rounded-3xl border p-7 transition duration-300 md:p-9 ${
                 plan.highlight
-                  ? "border-orange-500/60 bg-gradient-to-b from-orange-500/10 to-zinc-950 shadow-[0_0_50px_rgba(249,115,22,0.10)]"
+                  ? "border-orange-500/60 bg-gradient-to-b from-orange-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(249,115,22,0.12)]"
                   : "border-white/10 bg-white/[0.025] hover:border-white/20"
               }`}
             >
               {plan.highlight && (
-                <div className="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300">
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                  Most Popular
+                <div className="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
+                  <Crown className="h-3.5 w-3.5" aria-hidden="true" />
+                  Best value
                 </div>
               )}
 
               <div>
-                <h3 className="text-2xl font-black text-white">{plan.name}</h3>
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                    plan.highlight
+                      ? "bg-orange-500/15 text-orange-400"
+                      : "bg-white/[0.06] text-zinc-300"
+                  }`}
+                >
+                  {plan.highlight ? (
+                    <Crown className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </div>
 
-                <p className="mt-3 max-w-sm text-sm leading-6 text-zinc-400">
+                <h3 className="mt-5 text-2xl font-black text-white">
+                  {plan.name}
+                </h3>
+
+                <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
                   {plan.description}
                 </p>
 
@@ -131,52 +262,119 @@ async function handleProClick() {
               <ul className="flex-1 space-y-4">
                 {plan.features.map((feature) => (
                   <li
-                    key={feature}
-                    className="flex items-start gap-3 text-sm leading-6 text-zinc-300"
+                    key={feature.text}
+                    className={`flex items-start gap-3 text-sm leading-6 ${
+                      feature.included ? "text-zinc-200" : "text-zinc-600"
+                    }`}
                   >
                     <span
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                        plan.highlight
-                          ? "bg-orange-500/15 text-orange-400"
-                          : "bg-white/[0.06] text-zinc-400"
+                        feature.included
+                          ? plan.highlight
+                            ? "bg-orange-500/15 text-orange-400"
+                            : "bg-white/[0.07] text-zinc-300"
+                          : "bg-white/[0.03] text-zinc-600"
                       }`}
                     >
-                      <Check
-                        className="h-3.5 w-3.5"
-                        strokeWidth={3}
-                        aria-hidden="true"
-                      />
+                      {feature.included ? (
+                        <Check
+                          className="h-3.5 w-3.5"
+                          strokeWidth={3}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <X
+                          className="h-3.5 w-3.5"
+                          strokeWidth={2.5}
+                          aria-hidden="true"
+                        />
+                      )}
                     </span>
 
-                    {feature}
+                    <span
+                      className={
+                        feature.emphasis ? "font-bold text-white" : ""
+                      }
+                    >
+                      {feature.text}
+                    </span>
                   </li>
                 ))}
               </ul>
 
               <button
                 type="button"
-                onClick={plan.highlight ? handleProClick : scrollToAnalyzer}
-                className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 ${
+                disabled={plan.highlight && checkoutLoading}
+                onClick={
+                  plan.highlight ? handleProClick : scrollToAnalyzer
+                }
+                className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
                   plan.highlight
                     ? "bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.16)] hover:bg-orange-400 hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]"
                     : "border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]"
                 }`}
               >
-                {plan.buttonText}
-
-                <ArrowRight
-                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                />
+                {plan.highlight && checkoutLoading ? (
+                  <>
+                    <Loader2
+                      className="h-4 w-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Opening secure checkout...
+                  </>
+                ) : (
+                  <>
+                    {plan.buttonText}
+                    <ArrowRight
+                      className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
               </button>
-            </div>
+
+              {plan.highlight && checkoutError && (
+                <p
+                  role="alert"
+                  className="mt-3 text-center text-sm font-medium text-red-400"
+                >
+                  {checkoutError}
+                </p>
+              )}
+            </article>
           ))}
         </div>
 
-      
-        <p className="mt-8 text-center text-xs font-medium text-zinc-500">
-  Cancel anytime. Secure checkout. No hidden charges.
-</p>
+        <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-sm text-zinc-400 sm:grid-cols-3">
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+            <ShieldCheck
+              className="h-4 w-4 text-orange-400"
+              aria-hidden="true"
+            />
+            Secure Stripe checkout
+          </div>
+
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+            <LockKeyhole
+              className="h-4 w-4 text-orange-400"
+              aria-hidden="true"
+            />
+            Pro access is protected
+          </div>
+
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+            <Check
+              className="h-4 w-4 text-orange-400"
+              aria-hidden="true"
+            />
+            Cancel anytime
+          </div>
+        </div>
+
+        <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
+          Pro renews monthly until cancelled. Taxes may apply where required.
+          Your billing and subscription can be managed securely through Stripe.
+        </p>
       </div>
     </section>
   );
