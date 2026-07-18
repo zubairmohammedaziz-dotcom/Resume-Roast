@@ -357,45 +357,36 @@ function renderResume(
     );
   }
 
-  function drawSectionTitle(
-    title: string,
-    anticipatedContentHeight = 8
-  ) {
-    /*
-     * Reserve enough room for both the heading and at least the first
-     * meaningful content block. This prevents orphaned headings.
-     */
-    ensureSpace(
-      sectionHeaderHeight() + anticipatedContentHeight
-    );
+ function drawSectionTitle(
+  title: string,
+  anticipatedContentHeight = 8
+) {
+  ensureSpace(
+    sectionHeaderHeight() + anticipatedContentHeight
+  );
 
-    y += profile.sectionTopGap;
+  y += profile.sectionTopGap;
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(profile.sectionTitleSize);
-    doc.setTextColor(17, 24, 39);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(profile.sectionTitleSize);
+  doc.setTextColor(15, 23, 42);
 
-    doc.text(title.toUpperCase(), profile.marginX, y);
+  doc.text(title.toUpperCase(), profile.marginX, y);
 
-    const titleWidth = doc.getTextWidth(title.toUpperCase());
-    const lineStart = Math.min(
-      profile.marginX + titleWidth + 5,
-      pageWidth - profile.marginX - 10
-    );
+  y += 2.2;
 
-    doc.setDrawColor(249, 115, 22);
-    doc.setLineWidth(0.35);
+  doc.setDrawColor(51, 65, 85);
+  doc.setLineWidth(0.3);
 
-    doc.line(
-      lineStart,
-      y - 0.7,
-      pageWidth - profile.marginX,
-      y - 0.7
-    );
+  doc.line(
+    profile.marginX,
+    y,
+    pageWidth - profile.marginX,
+    y
+  );
 
-    y += profile.sectionTitleBottomGap;
-  }
-
+  y += profile.sectionTitleBottomGap;
+}
   function drawParagraph(text: string, bottomGap?: number) {
     if (!text) return;
 
@@ -823,12 +814,6 @@ function renderResume(
   doc.setDrawColor(51, 65, 85);
   doc.setLineWidth(0.32);
 
-  doc.line(
-    profile.marginX,
-    y,
-    pageWidth - profile.marginX,
-    y
-  );
 
   y += profile.headerBottomGap;
 

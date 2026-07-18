@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Bookmark,
   BriefcaseBusiness,
+  CalendarDays,
   Check,
   ChevronDown,
+  Clock3,
   ExternalLink,
   IndianRupee,
   Lightbulb,
   MapPin,
+  Radio,
   Search,
   Sparkles,
   Target,
@@ -19,13 +22,28 @@ import {
 
 import type { JobMatch } from "../types/report";
 
+type LiveJobMatch = JobMatch & {
+  url?: string;
+  source?: string;
+  postedAt?: string;
+  employmentType?: string;
+  isLive?: boolean;
+  description?: string;
+  seniority?: string;
+  searchLinks?: {
+    linkedin?: string;
+    indeed?: string;
+    naukri?: string;
+    foundit?: string;
+  };
+};
+
 type Props = {
   jobs: JobMatch[];
 };
 
 type Platform = {
   name: string;
-  shortName: string;
   url: string;
 };
 
@@ -33,15 +51,27 @@ export default function JobMatches({ jobs }: Props) {
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [openSearchMenu, setOpenSearchMenu] = useState<string | null>(null);
+  const menuAreaRef = useRef<HTMLDivElement | null>(null);
 
   const sortedJobs = useMemo(
-    () => [...(jobs || [])].sort((a, b) => b.match - a.match),
+    () =>
+      [...((jobs || []) as LiveJobMatch[])].sort(
+        (a, b) => Number(b.match || 0) - Number(a.match || 0)
+      ),
     [jobs]
+  );
+
+  const liveJobCount = useMemo(
+    () =>
+      sortedJobs.filter(
+        (job) => Boolean(job.isLive && isSafeExternalUrl(job.url))
+      ).length,
+    [sortedJobs]
   );
 
   useEffect(() => {
     try {
-      const storedJobs: JobMatch[] = JSON.parse(
+      const storedJobs: LiveJobMatch[] = JSON.parse(
         localStorage.getItem("savedJobs") || "[]"
       );
 
@@ -51,23 +81,37 @@ export default function JobMatches({ jobs }: Props) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!openSearchMenu) return;
+
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        menuAreaRef.current &&
+        !menuAreaRef.current.contains(event.target as Node)
+      ) {
+        setOpenSearchMenu(null);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenSearchMenu(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [openSearchMenu]);
+
   if (sortedJobs.length === 0) return null;
 
-  function handleTailor(job: JobMatch) {
-    const jobDescription = `
-Target role: ${job.role}
-Employer type: ${job.company}
-Preferred location: ${job.location}
-Estimated salary: ${job.salary}
-
-Why this role fits:
-${(job.whyMatched || []).map((item) => `- ${item}`).join("\n")}
-
-Skills to strengthen:
-${(job.missingSkills || []).map((item) => `- ${item}`).join("\n")}
-
-Create a targeted, ATS-friendly resume for this role.
-`.trim();
+  function handleTailor(job: LiveJobMatch) {
+    const jobDescription = buildTailoringBrief(job);
 
     window.dispatchEvent(
       new CustomEvent("tailor-job", {
@@ -75,13 +119,17 @@ Create a targeted, ATS-friendly resume for this role.
       })
     );
 
-    setMessage(`${job.role} is ready in the tailoring workspace.`);
+    setMessage(
+      `${job.role} at ${job.company} is ready in the tailoring workspace.`
+    );
+
+    window.setTimeout(() => setMessage(""), 5000);
   }
 
-  function handleSave(job: JobMatch) {
+  function handleSave(job: LiveJobMatch) {
     try {
       const key = getJobKey(job);
-      const storedJobs: JobMatch[] = JSON.parse(
+      const storedJobs: LiveJobMatch[] = JSON.parse(
         localStorage.getItem("savedJobs") || "[]"
       );
 
@@ -115,7 +163,7 @@ Create a targeted, ATS-friendly resume for this role.
               <Sparkles className="h-3.5 w-3.5 text-orange-400" />
 
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-300">
-                Career Opportunity Hub
+                Live Opportunity Hub
               </p>
             </div>
 
@@ -123,19 +171,24 @@ Create a targeted, ATS-friendly resume for this role.
               id="opportunity-hub-title"
               className="mt-4 text-2xl font-semibold tracking-[-0.03em] text-white md:text-3xl"
             >
-              Career directions matched to your profile
+              Live jobs ranked for your profile
             </h2>
 
             <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-500">
-              Compare your strongest role matches, understand your fit and
-              search live opportunities across leading job platforms.
+              Review current openings, understand why each role fits and
+              tailor your resume before applying.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <SummaryMetric
-              label="Roles analyzed"
+              label="Jobs ranked"
               value={`${sortedJobs.length}`}
+            />
+
+            <SummaryMetric
+              label="Live links"
+              value={`${liveJobCount}`}
             />
 
             <SummaryMetric
@@ -148,9 +201,9 @@ Create a targeted, ATS-friendly resume for this role.
         <div className="border-t border-white/[0.07] bg-black/20 px-5 py-3 sm:px-6">
           <p className="flex gap-2 text-xs leading-5 text-zinc-600">
             <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-400" />
-            These are AI-recommended career directions—not claims of specific
-            vacancies. Use the platform search to view currently available
-            jobs.
+            Matches are ranked against your resume. Job details can change on
+            the provider&apos;s site, so review the complete listing before
+            applying.
           </p>
         </div>
       </header>
@@ -171,8 +224,10 @@ Create a targeted, ATS-friendly resume for this role.
           const isTopMatch = index === 0;
           const saved = savedJobs.includes(key);
           const insights = getRoleInsights(job);
-          const platforms = createPlatformLinks(job);
+          const platforms = createFallbackSearchLinks(job);
           const searchMenuOpen = openSearchMenu === key;
+          const hasDirectApply = isSafeExternalUrl(job.url);
+          const postedLabel = formatPostedDate(job.postedAt);
 
           return (
             <article
@@ -202,9 +257,24 @@ Create a targeted, ATS-friendly resume for this role.
                     <CompanyMark company={job.company} />
 
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-zinc-600">
-                        {job.company}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-zinc-600">
+                          {job.company || "Employer not listed"}
+                        </p>
+
+                        {job.isLive && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.13em] text-emerald-300">
+                            <Radio className="h-2.5 w-2.5" />
+                            Live
+                          </span>
+                        )}
+
+                        {job.source && (
+                          <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-2 py-1 text-[9px] font-medium text-zinc-500">
+                            via {job.source}
+                          </span>
+                        )}
+                      </div>
 
                       <h3 className="mt-2 text-xl font-semibold tracking-[-0.025em] text-white sm:text-2xl">
                         {job.role}
@@ -213,18 +283,29 @@ Create a targeted, ATS-friendly resume for this role.
                       <div className="mt-4 flex flex-wrap gap-2">
                         <MetadataBadge
                           icon={<MapPin className="h-3.5 w-3.5" />}
-                          label={job.location}
+                          label={job.location || "India"}
                         />
 
                         <MetadataBadge
                           icon={<IndianRupee className="h-3.5 w-3.5" />}
-                          label={job.salary}
+                          label={job.salary || "Not disclosed"}
                         />
 
                         <MetadataBadge
                           icon={<BriefcaseBusiness className="h-3.5 w-3.5" />}
-                          label={job.seniority || insights.seniority}
+                          label={
+                            formatEmploymentType(job.employmentType) ||
+                            job.seniority ||
+                            insights.seniority
+                          }
                         />
+
+                        {postedLabel && (
+                          <MetadataBadge
+                            icon={<CalendarDays className="h-3.5 w-3.5" />}
+                            label={postedLabel}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -265,7 +346,7 @@ Create a targeted, ATS-friendly resume for this role.
                         </p>
 
                         <p className="mt-0.5 text-[10px] text-zinc-700">
-                          Evidence identified in your resume
+                          Evidence matched against your resume
                         </p>
                       </div>
                     </div>
@@ -284,7 +365,7 @@ Create a targeted, ATS-friendly resume for this role.
                       ) : (
                         <li className="text-sm leading-6 text-zinc-500">
                           Your experience contains relevant signals for this
-                          career direction.
+                          opportunity.
                         </li>
                       )}
                     </ul>
@@ -302,7 +383,7 @@ Create a targeted, ATS-friendly resume for this role.
                         </p>
 
                         <p className="mt-0.5 text-[10px] text-zinc-700">
-                          Skills that could increase your match
+                          Gaps that may reduce your match
                         </p>
                       </div>
                     </div>
@@ -320,22 +401,26 @@ Create a targeted, ATS-friendly resume for this role.
                       </div>
                     ) : (
                       <p className="mt-4 text-sm leading-6 text-zinc-500">
-                        No critical skill gaps were identified for this role.
+                        No major supported-skill gaps were identified.
                       </p>
                     )}
 
                     <p className="mt-5 border-t border-white/[0.07] pt-4 text-xs leading-5 text-zinc-600">
-                      Tailoring your summary and experience bullets around this
-                      role can improve application relevance.
+                      Tailor your summary and experience around the actual
+                      listing before applying.
                     </p>
                   </section>
                 </div>
 
                 <footer className="mt-6 flex flex-col justify-between gap-4 border-t border-white/[0.08] pt-5 lg:flex-row lg:items-center">
-                  <p className="max-w-md text-xs leading-5 text-zinc-700">
-                    Match scores and salary ranges are AI estimates. Verify job
-                    requirements and compensation before applying.
-                  </p>
+                  <div className="flex max-w-lg items-start gap-2 text-xs leading-5 text-zinc-700">
+                    <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <p>
+                      Match scores are guidance, not hiring guarantees. Confirm
+                      requirements, salary and availability on the original
+                      listing.
+                    </p>
+                  </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button
@@ -350,50 +435,43 @@ Create a targeted, ATS-friendly resume for this role.
                       {saved ? "Saved" : "Save"}
                     </button>
 
-                    <div className="relative">
-                      <button
-                        type="button"
-                        aria-expanded={searchMenuOpen}
-                        onClick={() =>
-                          setOpenSearchMenu(searchMenuOpen ? null : key)
-                        }
-                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-black/25 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:border-orange-500/30 hover:text-white"
+                    {hasDirectApply ? (
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-5 py-2.5 text-sm font-semibold text-emerald-300 transition hover:border-emerald-400/40 hover:bg-emerald-500/[0.13]"
                       >
-                        <Search className="h-4 w-4" />
-                        Search live jobs
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
+                        Apply now
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <div className="relative" ref={menuAreaRef}>
+                        <button
+                          type="button"
+                          aria-expanded={searchMenuOpen}
+                          onClick={() =>
+                            setOpenSearchMenu(searchMenuOpen ? null : key)
+                          }
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-black/25 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:border-orange-500/30 hover:text-white"
+                        >
+                          <Search className="h-4 w-4" />
+                          Find this role
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
 
-                      {searchMenuOpen && (
-                        <div className="absolute bottom-[calc(100%+8px)] right-0 z-20 w-full min-w-[230px] overflow-hidden rounded-xl border border-white/[0.1] bg-[#111111] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.6)]">
-                          {platforms.map((platform) => (
-                            <a
-                              key={platform.name}
-                              href={platform.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
-                            >
-                              <span>
-                                Search on{" "}
-                                <strong className="font-semibold text-zinc-200">
-                                  {platform.name}
-                                </strong>
-                              </span>
-
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                        {searchMenuOpen && (
+                          <SearchMenu platforms={platforms} />
+                        )}
+                      </div>
+                    )}
 
                     <button
                       type="button"
                       onClick={() => handleTailor(job)}
                       className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-bold text-black transition hover:bg-orange-400"
                     >
-                      Tailor for this role
+                      Tailor resume
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </button>
                   </div>
@@ -407,11 +485,65 @@ Create a targeted, ATS-friendly resume for this role.
   );
 }
 
-function getJobKey(job: JobMatch) {
-  return `${job.company}-${job.role}`;
+function SearchMenu({ platforms }: { platforms: Platform[] }) {
+  return (
+    <div className="absolute bottom-[calc(100%+8px)] right-0 z-20 w-full min-w-[230px] overflow-hidden rounded-xl border border-white/[0.1] bg-[#111111] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.6)]">
+      {platforms.map((platform) => (
+        <a
+          key={platform.name}
+          href={platform.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-zinc-400 transition hover:bg-white/[0.05] hover:text-white"
+        >
+          <span>
+            Search on{" "}
+            <strong className="font-semibold text-zinc-200">
+              {platform.name}
+            </strong>
+          </span>
+
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
-function getRoleInsights(job: JobMatch) {
+function buildTailoringBrief(job: LiveJobMatch) {
+  const actualDescription = job.description?.trim();
+
+  return `
+Target role: ${job.role}
+Employer: ${job.company}
+Location: ${job.location || "Not specified"}
+Salary: ${job.salary || "Not disclosed"}
+Employment type: ${formatEmploymentType(job.employmentType) || "Not specified"}
+Job source: ${job.source || "Live job provider"}
+Original job link: ${job.url || "Not available"}
+
+${actualDescription ? `LIVE JOB DESCRIPTION:\n${actualDescription}\n` : ""}
+
+WHY THIS ROLE MATCHED:
+${(job.whyMatched || []).map((item) => `- ${item}`).join("\n") || "- Review the candidate evidence against this role."}
+
+POTENTIAL GAPS:
+${(job.missingSkills || []).map((item) => `- ${item}`).join("\n") || "- No major gaps identified."}
+
+Create a truthful, premium and ATS-safe resume specifically for this opportunity.
+Use the live job description when supplied.
+Do not invent experience, tools, metrics or qualifications.
+`.trim();
+}
+
+function getJobKey(job: LiveJobMatch) {
+  return (
+    job.url ||
+    `${job.company || "company"}-${job.role || "role"}-${job.location || "location"}`
+  );
+}
+
+function getRoleInsights(job: LiveJobMatch) {
   const score = Math.max(0, Math.min(100, Math.round(job.match || 0)));
   const gaps = job.missingSkills?.length || 0;
 
@@ -419,31 +551,31 @@ function getRoleInsights(job: JobMatch) {
     score >= 85
       ? "Excellent fit"
       : score >= 72
-      ? "Strong fit"
-      : score >= 58
-      ? "Potential fit"
-      : "Exploratory fit";
+        ? "Strong fit"
+        : score >= 58
+          ? "Potential fit"
+          : "Exploratory fit";
 
   const difficulty =
     score >= 82 && gaps <= 2
       ? "Apply now"
       : score >= 68
-      ? "Competitive"
-      : "Stretch role";
+        ? "Competitive"
+        : "Stretch role";
 
   const action =
     score >= 82
       ? "Tailor and apply"
       : score >= 65
-      ? "Strengthen keywords"
-      : "Build missing skills";
+        ? "Strengthen keywords"
+        : "Review gaps first";
 
   const seniority =
     score >= 80
       ? "Aligned seniority"
       : score >= 60
-      ? "Review experience"
-      : "Career transition";
+        ? "Review experience"
+        : "Career transition";
 
   return {
     fit,
@@ -453,7 +585,7 @@ function getRoleInsights(job: JobMatch) {
   };
 }
 
-function createPlatformLinks(job: JobMatch): Platform[] {
+function createFallbackSearchLinks(job: LiveJobMatch): Platform[] {
   const role = job.role?.trim() || "jobs";
   const location = normalizeLocation(job.location);
 
@@ -465,29 +597,24 @@ function createPlatformLinks(job: JobMatch): Platform[] {
   return [
     {
       name: "LinkedIn",
-      shortName: "LI",
       url:
         job.searchLinks?.linkedin ||
-        job.url ||
         `https://www.linkedin.com/jobs/search/?keywords=${query}&location=${encodedLocation}`,
     },
     {
       name: "Indeed India",
-      shortName: "IN",
       url:
         job.searchLinks?.indeed ||
         `https://in.indeed.com/jobs?q=${query}&l=${encodedLocation}`,
     },
     {
       name: "Naukri",
-      shortName: "NK",
       url:
         job.searchLinks?.naukri ||
         `https://www.naukri.com/${roleSlug}-jobs-in-${locationSlug}`,
     },
     {
       name: "Foundit",
-      shortName: "FD",
       url:
         job.searchLinks?.foundit ||
         `https://www.foundit.in/search/${roleSlug}-jobs-in-${locationSlug}`,
@@ -514,6 +641,48 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function isSafeExternalUrl(value?: string) {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function formatPostedDate(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const difference = Date.now() - date.getTime();
+  const days = Math.max(
+    0,
+    Math.floor(difference / (1000 * 60 * 60 * 24))
+  );
+
+  if (days === 0) return "Posted today";
+  if (days === 1) return "Posted yesterday";
+  if (days < 30) return `Posted ${days} days ago`;
+
+  return `Posted ${date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  })}`;
+}
+
+function formatEmploymentType(value?: string) {
+  if (!value) return "";
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function SummaryMetric({
   label,
   value,
@@ -522,7 +691,7 @@ function SummaryMetric({
   value: string;
 }) {
   return (
-    <div className="min-w-[105px] rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+    <div className="min-w-[100px] rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
       <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-700">
         {label}
       </p>
@@ -533,7 +702,7 @@ function SummaryMetric({
 }
 
 function CompanyMark({ company }: { company: string }) {
-  const initials = company
+  const initials = (company || "Company")
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -556,10 +725,10 @@ function MatchScore({ score }: { score: number }) {
     safeScore >= 85
       ? "Excellent"
       : safeScore >= 70
-      ? "Strong"
-      : safeScore >= 55
-      ? "Moderate"
-      : "Developing";
+        ? "Strong"
+        : safeScore >= 55
+          ? "Moderate"
+          : "Developing";
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#101010] px-4 py-3">
