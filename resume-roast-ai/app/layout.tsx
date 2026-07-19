@@ -14,8 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Resume Roast AI",
-  description: "AI Resume Analyzer",
+  title: {
+    default: "OffernHire | AI Career Copilot for Job Seekers",
+    template: "%s | OffernHire",
+  },
+  description:
+    "Improve your resume, check ATS score, tailor resumes, find relevant jobs and prepare for interviews with OffernHire.",
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

@@ -9,6 +9,11 @@ import Footer from "../components/Footer";
 import JobMatches from "../components/JobMatches";
 import TailorResume from "../components/TailorResume";
 import type { JobMatch, Report } from "../types/report";
+import {
+  canAnalyzeResume,
+  limitJobMatches,
+  recordSuccessfulAnalysis,
+} from "../lib/freeLimits";
 
 type WorkspaceTab = "overview" | "jobs" | "tailor";
 
@@ -90,6 +95,15 @@ export default function Home() {
       setStatus("Upload a resume before starting the analysis.");
       return;
     }
+     if (!canAnalyzeResume()) {
+      setIsLoading(false);
+      setJobsLoading(false);
+  setAnalysisStage("idle");
+  setStatus(
+    "You have used today’s free resume analysis. Upgrade to Pro for unlimited analyses, job matches, resume tailoring and premium exports."
+  );
+  return;
+}
 
     try {
       setIsLoading(true);
@@ -112,6 +126,7 @@ export default function Home() {
         setAnalysisStage("evaluating");
         setStatus("Evaluating ATS and recruiter readiness...");
       }, 1800);
+  
 
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -125,6 +140,7 @@ export default function Home() {
         setStatus(data.message || "Resume analysis failed.");
         return;
       }
+      recordSuccessfulAnalysis();
 
       const reportData: Report = {
         success: true,
@@ -217,8 +233,8 @@ export default function Home() {
           : [],
 
         jobMatches: Array.isArray(data.jobMatches)
-          ? data.jobMatches
-          : [],
+  ? limitJobMatches(data.jobMatches)
+  : [],
       };
 
       setReport(reportData);
