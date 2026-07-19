@@ -112,6 +112,20 @@ export default function Home() {
         setAnalysisStage("evaluating");
         setStatus("Evaluating ATS and recruiter readiness...");
       }, 1800);
+      const accessResponse = await fetch("/api/access/check", {
+  method: "POST",
+});
+
+const accessData = await accessResponse.json();
+
+if (!accessResponse.ok || !accessData.allowed) {
+  setAnalysisStage("idle");
+  setStatus(
+    accessData.message ||
+      "Your free analysis limit has been reached. Upgrade to Pro to continue."
+  );
+  return;
+}
 
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -217,7 +231,9 @@ export default function Home() {
           : [],
 
         jobMatches: Array.isArray(data.jobMatches)
-          ? data.jobMatches
+           ? accessData.plan === "free"
+           ? data.jobMatches.slice(0, 3)
+           : data.jobMatches
           : [],
       };
 
