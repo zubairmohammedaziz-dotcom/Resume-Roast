@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-import { authOptions } from "../../../../lib/auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export const runtime = "nodejs";
 

@@ -15,7 +15,7 @@ export default function Navbar() {
           </div>
 
           <div>
-            <p className="text-lg font-black text-white">OffernHire</p>
+            <p className="text-lg font-black text-white">Resume Roast AI</p>
             <p className="text-xs text-zinc-500">
               From Resume to Offer Letter
             </p>

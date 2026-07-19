@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import openai from "../../../lib/openai";
-import { authOptions } from "../../../lib/auth";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -832,28 +829,7 @@ Before returning the response, silently verify:
 `;
 
 export async function POST(req: NextRequest) {
-  let chargedFreeUser: string | null = null;
-
   try {
-    const session = await getServerSession(authOptions);
-
-    const userId = session?.user?.email
-      ?.toLowerCase()
-      .trim();
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "AUTH_REQUIRED",
-          message:
-            "Please sign in with Google to analyze your resume.",
-          signInRequired: true,
-        },
-        { status: 401 }
-      );
-    }
-
     const formData = await req.formData();
     const file = formData.get("resume");
 
@@ -886,52 +862,6 @@ export async function POST(req: NextRequest) {
         { status: 413 }
       );
     }
-
-    const { data: usageResult, error: usageError } =
-      await supabaseAdmin.rpc("consume_resume_analysis", {
-        p_user_id: userId,
-      });
-
-    if (usageError) {
-      console.error("Usage limit check failed:", usageError);
-
-      return NextResponse.json(
-        {
-          success: false,
-          code: "USAGE_CHECK_FAILED",
-          message:
-            "We could not verify your plan. Please try again.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const usage = usageResult as {
-      allowed?: boolean;
-      plan?: string;
-      remaining?: number;
-      reason?: string;
-    } | null;
-
-    if (!usage?.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "FREE_DAILY_LIMIT_REACHED",
-          message:
-            "You have used today’s free resume analysis. Upgrade to Pro for unlimited analyses, resume tailoring, cover letters, interview preparation and premium exports.",
-          upgradeRequired: true,
-          plan: "free",
-          remaining: 0,
-        },
-        { status: 429 }
-      );
-    }
-
-    if (usage.plan === "free") {
-      chargedFreeUser = userId;
-    }
-
 
     const arrayBuffer = await file.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
@@ -1104,22 +1034,8 @@ Return only the structured result required by the schema.
 
       jobMatches,
     });
-    } catch (error) {
+  } catch (error) {
     console.error("AI analysis error:", error);
-
-    if (chargedFreeUser) {
-      const { error: refundError } =
-        await supabaseAdmin.rpc("refund_resume_analysis", {
-          p_user_id: chargedFreeUser,
-        });
-
-      if (refundError) {
-        console.error(
-          "Unable to refund failed analysis:",
-          refundError
-        );
-      }
-    }
 
     return NextResponse.json(
       {

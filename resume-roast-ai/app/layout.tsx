@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OffernHire",
+  title: "Resume Roast AI",
   description: "AI Resume Analyzer",
 };
 

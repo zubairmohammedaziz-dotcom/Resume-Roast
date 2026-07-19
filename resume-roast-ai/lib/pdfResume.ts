@@ -1004,7 +1004,7 @@ function addPageFooters(
     doc.setTextColor(148, 163, 184);
 
     doc.text(
-      "Generated with OffernHire",
+      "Generated with Resume Roast AI",
       profile.marginX,
       footerY
     );
