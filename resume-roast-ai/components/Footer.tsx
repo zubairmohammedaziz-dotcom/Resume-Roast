@@ -9,7 +9,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <h3 className="text-2xl font-black text-white">
-              Resume Roast AI
+              OffernHire
             </h3>
 
             <p className="mt-4 text-sm leading-7 text-zinc-400">
@@ -118,7 +118,7 @@ export default function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-sm text-zinc-500 md:flex-row">
           <p>
-            © {new Date().getFullYear()} Resume Roast AI. All rights reserved.
+            © {new Date().getFullYear()} Offer N Hire. All rights reserved.
           </p>
 
           <p>

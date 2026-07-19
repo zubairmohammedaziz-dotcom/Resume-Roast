@@ -1198,7 +1198,7 @@ function AnalysisProgress({
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-medium text-orange-300">
-            Resume Roast is working
+            OffernHire is working
           </p>
 
           <p className="mt-1 text-[11px] text-zinc-600">
