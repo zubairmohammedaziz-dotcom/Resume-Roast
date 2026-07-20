@@ -70,15 +70,26 @@ export default function JobMatches({ jobs }: Props) {
   );
 
   useEffect(() => {
-    try {
-      const storedJobs: LiveJobMatch[] = JSON.parse(
-        localStorage.getItem("savedJobs") || "[]"
-      );
+    const timer = window.setTimeout(() => {
+      try {
+        const storedValue = window.localStorage.getItem("savedJobs");
+        const parsedValue: unknown = storedValue
+          ? JSON.parse(storedValue)
+          : [];
 
-      setSavedJobs(storedJobs.map(getJobKey));
-    } catch {
-      setSavedJobs([]);
-    }
+        const storedJobs = Array.isArray(parsedValue)
+          ? parsedValue.filter(isLiveJobMatch)
+          : [];
+
+        setSavedJobs(storedJobs.map(getJobKey));
+      } catch {
+        setSavedJobs([]);
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -129,9 +140,14 @@ export default function JobMatches({ jobs }: Props) {
   function handleSave(job: LiveJobMatch) {
     try {
       const key = getJobKey(job);
-      const storedJobs: LiveJobMatch[] = JSON.parse(
-        localStorage.getItem("savedJobs") || "[]"
-      );
+      const storedValue = window.localStorage.getItem("savedJobs");
+      const parsedValue: unknown = storedValue
+        ? JSON.parse(storedValue)
+        : [];
+
+      const storedJobs = Array.isArray(parsedValue)
+        ? parsedValue.filter(isLiveJobMatch)
+        : [];
 
       const alreadySaved = storedJobs.some(
         (item) => getJobKey(item) === key
@@ -482,6 +498,19 @@ export default function JobMatches({ jobs }: Props) {
         })}
       </div>
     </section>
+  );
+}
+
+function isLiveJobMatch(value: unknown): value is LiveJobMatch {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.company === "string" &&
+    typeof record.role === "string"
   );
 }
 
