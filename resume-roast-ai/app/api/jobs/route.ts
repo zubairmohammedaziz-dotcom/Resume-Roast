@@ -39,7 +39,7 @@ type NormalizedJob = {
   salaryMax: number | null;
   salaryIsPredicted: boolean;
   description: string;
-  source: "Adzuna";
+  source: "Adzuna" | "Jooble";
   url: string;
   postedAt: string;
   employmentType: string;
@@ -97,7 +97,7 @@ const searchProfileSchema = {
 const PROFILE_INSTRUCTIONS = `
 You are a senior India recruiter and job-search strategist.
 
-Create a precise profile for finding LIVE jobs through the Adzuna India API.
+Create a precise profile for finding LIVE jobs through the Adzuna and Jooble APIs in India.
 
 RULES
 - Use only facts supported by the resume report.
@@ -127,17 +127,22 @@ export async function POST(req: NextRequest) {
     if (!isRecord(body) || !isRecord(body.report)) {
       return NextResponse.json(
         { success: false, message: "Missing resume report." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (!process.env.ADZUNA_APP_ID || !process.env.ADZUNA_APP_KEY) {
+    const adzunaConfigured =
+      Boolean(process.env.ADZUNA_APP_ID) && Boolean(process.env.ADZUNA_APP_KEY);
+    const joobleConfigured = Boolean(process.env.JOOBLE_API_KEY);
+
+    if (!adzunaConfigured && !joobleConfigured) {
       return NextResponse.json(
         {
           success: false,
-          message: "Adzuna is not configured. Add ADZUNA_APP_ID and ADZUNA_APP_KEY.",
+          message:
+            "No job provider is configured. Add Adzuna credentials or JOOBLE_API_KEY.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -147,22 +152,28 @@ export async function POST(req: NextRequest) {
     if (reportText.length > MAX_REPORT_LENGTH) {
       return NextResponse.json(
         { success: false, message: "Resume report is too large." },
-        { status: 413 }
+        { status: 413 },
       );
     }
 
     const profile = await createSearchProfile(reportText);
     const plans = buildSearchPlans(profile, report);
-    const liveJobs = dedupeJobs(await fetchAdzunaJobs(plans));
+
+    const [adzunaJobs, joobleJobs] = await Promise.all([
+      fetchAdzunaJobs(plans),
+      fetchJoobleJobs(plans),
+    ]);
+
+    const liveJobs = dedupeJobs([...adzunaJobs, ...joobleJobs]);
 
     if (liveJobs.length === 0) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Adzuna returned no live jobs for this profile. Try again with a broader role or location.",
+            "No live jobs were returned by the configured providers. Try again with a broader role or location.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -180,7 +191,7 @@ export async function POST(req: NextRequest) {
           message:
             "Live jobs were found, but none met the minimum relevance standard for this resume.",
         },
-        { status: 422 }
+        { status: 422 },
       );
     }
 
@@ -204,7 +215,7 @@ export async function POST(req: NextRequest) {
         salaryMax: job.salaryMax,
         salaryIsPredicted: job.salaryIsPredicted,
         isLive: true,
-      }))
+      })),
     );
   } catch (error) {
     console.error("Jobs API error:", error);
@@ -216,7 +227,7 @@ export async function POST(req: NextRequest) {
             ? error.message
             : "Failed to generate live job matches.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -229,7 +240,7 @@ async function createSearchProfile(reportText: string): Promise<SearchProfile> {
     text: {
       format: {
         type: "json_schema",
-        name: "adzuna_job_search_profile",
+        name: "multi_provider_job_search_profile",
         strict: true,
         schema: searchProfileSchema,
       },
@@ -245,13 +256,21 @@ async function createSearchProfile(reportText: string): Promise<SearchProfile> {
     return {
       ...parsed,
       primaryRole: cleanSearchTitle(parsed.primaryRole),
-      alternativeRoles: uniqueStrings(parsed.alternativeRoles.map(cleanSearchTitle), 5),
-      searchQueries: uniqueStrings(parsed.searchQueries.map(cleanSearchTitle), 6),
+      alternativeRoles: uniqueStrings(
+        parsed.alternativeRoles.map(cleanSearchTitle),
+        5,
+      ),
+      searchQueries: uniqueStrings(
+        parsed.searchQueries.map(cleanSearchTitle),
+        6,
+      ),
       preferredLocations: uniqueStrings(parsed.preferredLocations, 3),
       supportedSkills: uniqueStrings(parsed.supportedSkills, 35),
       supportedIndustries: uniqueStrings(parsed.supportedIndustries, 12),
       excludedSeniorities: uniqueStrings(parsed.excludedSeniorities, 12),
-      workModes: parsed.workModes.length ? parsed.workModes : ["onsite", "remote"],
+      workModes: parsed.workModes.length
+        ? parsed.workModes
+        : ["onsite", "remote"],
       employmentTypes: parsed.employmentTypes.length
         ? parsed.employmentTypes
         : ["full_time"],
@@ -262,15 +281,22 @@ async function createSearchProfile(reportText: string): Promise<SearchProfile> {
   }
 }
 
-function buildSearchPlans(profile: SearchProfile, report: UnknownRecord): SearchPlan[] {
+function buildSearchPlans(
+  profile: SearchProfile,
+  report: UnknownRecord,
+): SearchPlan[] {
   const roles = uniqueStrings(
-    [profile.primaryRole, ...profile.searchQueries, ...profile.alternativeRoles],
-    6
+    [
+      profile.primaryRole,
+      ...profile.searchQueries,
+      ...profile.alternativeRoles,
+    ],
+    6,
   );
 
   const locations = uniqueStrings(
     [extractLocation(report), ...profile.preferredLocations],
-    2
+    2,
   )
     .map(normalizeIndiaLocation)
     .filter(Boolean);
@@ -278,7 +304,8 @@ function buildSearchPlans(profile: SearchProfile, report: UnknownRecord): Search
   const primaryLocation = locations[0] || "India";
   const secondaryLocation =
     locations.find(
-      (value) => normalizeForMatch(value) !== normalizeForMatch(primaryLocation)
+      (value) =>
+        normalizeForMatch(value) !== normalizeForMatch(primaryLocation),
     ) || "India";
 
   const plans: SearchPlan[] = roles.slice(0, 4).map((query) => ({
@@ -288,7 +315,9 @@ function buildSearchPlans(profile: SearchProfile, report: UnknownRecord): Search
     employmentType: "any",
   }));
 
-  if (normalizeForMatch(secondaryLocation) !== normalizeForMatch(primaryLocation)) {
+  if (
+    normalizeForMatch(secondaryLocation) !== normalizeForMatch(primaryLocation)
+  ) {
     plans.push({
       query: roles[0],
       location: secondaryLocation,
@@ -371,10 +400,13 @@ async function fetchAdzunaJobs(plans: SearchPlan[]): Promise<NormalizedJob[]> {
       const response = await fetchWithTimeout(
         endpoint,
         {
-          headers: { Accept: "application/json", "User-Agent": "OffernHire/1.0" },
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "OffernHire/1.0",
+          },
           cache: "no-store",
         },
-        15_000
+        15_000,
       );
 
       if (!response.ok) {
@@ -414,8 +446,131 @@ async function fetchAdzunaJobs(plans: SearchPlan[]): Promise<NormalizedJob[]> {
 
   const settled = await Promise.allSettled(requests);
   return settled.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : []
+    result.status === "fulfilled" ? result.value : [],
   );
+}
+
+async function fetchJoobleJobs(plans: SearchPlan[]): Promise<NormalizedJob[]> {
+  const apiKey = process.env.JOOBLE_API_KEY;
+  if (!apiKey) return [];
+
+  const requests = plans.slice(0, 6).map(async (plan) => {
+    const endpoint = `https://jooble.org/api/${encodeURIComponent(apiKey)}`;
+    const payload: Record<string, string> = {
+      keywords: plan.query,
+      location: normalizeProviderLocation(plan.location),
+      radius: "80",
+      page: "1",
+      ResultOnPage: "30",
+      SearchMode: "0",
+      companysearch: "false",
+    };
+
+    try {
+      const response = await fetchWithTimeout(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "OffernHire/1.0",
+          },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        },
+        15_000,
+      );
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        console.error("Jooble request failed:", {
+          status: response.status,
+          query: plan.query,
+          location: plan.location,
+          detail: detail.slice(0, 500),
+        });
+        return [];
+      }
+
+      const data = (await response.json()) as UnknownRecord;
+      const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+
+      console.info("Jooble results:", {
+        query: plan.query,
+        location: plan.location,
+        count: jobs.length,
+      });
+
+      return jobs
+        .filter(isRecord)
+        .map(normalizeJoobleJob)
+        .filter((job): job is NormalizedJob => Boolean(job))
+        .filter((job) => matchesSearchPlan(job, plan));
+    } catch (error) {
+      console.error("Jooble request error:", {
+        query: plan.query,
+        location: plan.location,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  });
+
+  const settled = await Promise.allSettled(requests);
+  return settled.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
+}
+
+function normalizeJoobleJob(item: UnknownRecord): NormalizedJob | null {
+  const title = stripHtml(cleanString(item.title));
+  const link = ensureHttps(cleanString(item.link));
+  if (!title || !isSafeExternalJobUrl(link)) return null;
+
+  const company = stripHtml(cleanString(item.company));
+  const location = stripHtml(cleanString(item.location));
+  const description = stripHtml(cleanString(item.snippet));
+  const rawSalary = stripHtml(cleanString(item.salary));
+  const employmentType = stripHtml(cleanString(item.type));
+  const sourceLabel = stripHtml(cleanString(item.source));
+  const combined = `${title} ${description} ${location} ${employmentType}`;
+  const parsedSalary = parseJoobleSalary(rawSalary);
+
+  return {
+    id: `jooble:${cleanString(item.id) || link}`,
+    company: company || "Employer not listed",
+    role: title,
+    location: location || "India",
+    salary: rawSalary || "Not disclosed",
+    salaryMin: parsedSalary.minimum,
+    salaryMax: parsedSalary.maximum,
+    salaryIsPredicted: false,
+    description,
+    source: "Jooble",
+    url: link,
+    postedAt: cleanString(item.updated),
+    employmentType: employmentType || "Not specified",
+    workMode: detectWorkMode(combined),
+    category: sourceLabel || "General",
+  };
+}
+
+function parseJoobleSalary(value: string): {
+  minimum: number | null;
+  maximum: number | null;
+} {
+  if (!value) return { minimum: null, maximum: null };
+  const numbers =
+    value
+      .replace(/,/g, "")
+      .match(/\d+(?:\.\d+)?/g)
+      ?.map(Number)
+      .filter(Number.isFinite) || [];
+  return {
+    minimum: numbers[0] ?? null,
+    maximum: numbers[1] ?? numbers[0] ?? null,
+  };
 }
 
 function normalizeAdzunaJob(item: UnknownRecord): NormalizedJob | null {
@@ -432,12 +587,13 @@ function normalizeAdzunaJob(item: UnknownRecord): NormalizedJob | null {
     ? stripHtml(cleanString(locationRecord.display_name))
     : "";
 
-  const area = locationRecord && Array.isArray(locationRecord.area)
-    ? locationRecord.area
-        .filter((value): value is string => typeof value === "string")
-        .map(cleanString)
-        .filter(Boolean)
-    : [];
+  const area =
+    locationRecord && Array.isArray(locationRecord.area)
+      ? locationRecord.area
+          .filter((value): value is string => typeof value === "string")
+          .map(cleanString)
+          .filter(Boolean)
+      : [];
 
   const description = stripHtml(cleanString(item.description));
   const combined = `${title} ${description} ${displayLocation}`;
@@ -450,7 +606,9 @@ function normalizeAdzunaJob(item: UnknownRecord): NormalizedJob | null {
 
   const contractTime = normalizeContractTime(cleanString(item.contract_time));
   const contractType = normalizeContractType(cleanString(item.contract_type));
-  const employmentType = [contractTime, contractType].filter(Boolean).join(" • ");
+  const employmentType = [contractTime, contractType]
+    .filter(Boolean)
+    .join(" • ");
 
   const category = isRecord(item.category)
     ? cleanString(item.category.label)
@@ -480,15 +638,22 @@ function matchesSearchPlan(job: NormalizedJob, plan: SearchPlan): boolean {
   if (
     plan.employmentType === "part_time" &&
     !containsPhrase(job.employmentType, "part time")
-  ) return false;
+  )
+    return false;
   if (
     plan.employmentType === "contract" &&
     !containsPhrase(job.employmentType, "contract")
-  ) return false;
+  )
+    return false;
   if (
     plan.employmentType === "internship" &&
-    !containsAny(`${job.role} ${job.description}`, ["intern", "internship", "trainee"])
-  ) return false;
+    !containsAny(`${job.role} ${job.description}`, [
+      "intern",
+      "internship",
+      "trainee",
+    ])
+  )
+    return false;
   return true;
 }
 
@@ -498,20 +663,27 @@ function rankJob(job: NormalizedJob, profile: SearchProfile): RankedJob {
   const combined = `${roleText} ${descriptionText}`;
 
   const targetRoles = uniqueStrings(
-    [profile.primaryRole, ...profile.searchQueries, ...profile.alternativeRoles],
-    10
+    [
+      profile.primaryRole,
+      ...profile.searchQueries,
+      ...profile.alternativeRoles,
+    ],
+    10,
   );
 
   const roleScores = targetRoles
-    .map((role) => ({ role, score: tokenSimilarity(roleText, normalizeForMatch(role)) }))
+    .map((role) => ({
+      role,
+      score: tokenSimilarity(roleText, normalizeForMatch(role)),
+    }))
     .sort((a, b) => b.score - a.score);
 
   const bestRole = roleScores[0] || { role: profile.primaryRole, score: 0 };
   const skillMatches = profile.supportedSkills.filter((skill) =>
-    containsFlexiblePhrase(combined, skill)
+    containsFlexiblePhrase(combined, skill),
   );
   const industryMatches = profile.supportedIndustries.filter((industry) =>
-    containsFlexiblePhrase(combined, industry)
+    containsFlexiblePhrase(combined, industry),
   );
 
   let score = 18;
@@ -526,7 +698,7 @@ function rankJob(job: NormalizedJob, profile: SearchProfile): RankedJob {
   score -= calculateSeniorityPenalty(
     job.role,
     profile.candidateLevel,
-    profile.excludedSeniorities
+    profile.excludedSeniorities,
   );
 
   if (bestRole.score < 0.34) score -= 15;
@@ -540,7 +712,7 @@ function rankJob(job: NormalizedJob, profile: SearchProfile): RankedJob {
     bestRole.role,
     bestRole.score,
     skillMatches,
-    industryMatches
+    industryMatches,
   );
   const missingSkills = profile.supportedSkills
     .filter((skill) => !containsFlexiblePhrase(combined, skill))
@@ -555,25 +727,29 @@ function buildReasons(
   bestRole: string,
   roleSimilarity: number,
   skillMatches: string[],
-  industryMatches: string[]
+  industryMatches: string[],
 ): string[] {
   const reasons: string[] = [];
 
   if (roleSimilarity >= 0.7) {
-    reasons.push(`The title is a very close match to the target role: ${bestRole}.`);
+    reasons.push(
+      `The title is a very close match to the target role: ${bestRole}.`,
+    );
   } else if (roleSimilarity >= 0.45) {
-    reasons.push(`The role is closely related to the candidate's ${bestRole} profile.`);
+    reasons.push(
+      `The role is closely related to the candidate's ${bestRole} profile.`,
+    );
   }
 
   if (skillMatches.length) {
     reasons.push(
-      `The listing references relevant skills such as ${skillMatches.slice(0, 3).join(", ")}.`
+      `The listing references relevant skills such as ${skillMatches.slice(0, 3).join(", ")}.`,
     );
   }
 
   if (industryMatches.length) {
     reasons.push(
-      `The opportunity aligns with the candidate's ${industryMatches[0]} background.`
+      `The opportunity aligns with the candidate's ${industryMatches[0]} background.`,
     );
   }
 
@@ -581,20 +757,20 @@ function buildReasons(
     reasons.push(
       job.workMode === "remote"
         ? "The role is advertised as remote or work from home."
-        : `The ${job.workMode} arrangement matches the search profile.`
+        : `The ${job.workMode} arrangement matches the search profile.`,
     );
   }
 
   if (job.salaryMin !== null || job.salaryMax !== null) {
     reasons.push(
       job.salaryIsPredicted
-        ? "Adzuna provides an estimated salary range for this listing."
-        : "The listing includes salary information."
+        ? `${job.source} provides an estimated salary range for this listing.`
+        : "The listing includes salary information.",
     );
   }
 
   reasons.push(
-    `The seniority appears compatible with a ${profile.candidateLevel}-level profile.`
+    `The seniority appears compatible with a ${profile.candidateLevel}-level profile.`,
   );
 
   return uniqueStrings(reasons, 3);
@@ -673,10 +849,11 @@ function dedupeSearchPlans(plans: SearchPlan[]): SearchPlan[] {
 function calculateSeniorityPenalty(
   role: string,
   level: CandidateLevel,
-  excluded: string[]
+  excluded: string[],
 ): number {
   const normalized = normalizeForMatch(role);
-  if (excluded.some((title) => containsFlexiblePhrase(normalized, title))) return 35;
+  if (excluded.some((title) => containsFlexiblePhrase(normalized, title)))
+    return 35;
 
   const leadership = [
     "senior manager",
@@ -691,10 +868,22 @@ function calculateSeniorityPenalty(
   const manager = ["manager", "team lead", "lead"];
   const junior = ["intern", "trainee", "fresher", "junior", "entry level"];
 
-  if ((level === "fresher" || level === "junior") && containsAny(normalized, leadership)) return 38;
-  if ((level === "fresher" || level === "junior") && containsAny(normalized, manager)) return 28;
+  if (
+    (level === "fresher" || level === "junior") &&
+    containsAny(normalized, leadership)
+  )
+    return 38;
+  if (
+    (level === "fresher" || level === "junior") &&
+    containsAny(normalized, manager)
+  )
+    return 28;
   if (level === "mid" && containsAny(normalized, leadership)) return 20;
-  if ((level === "senior" || level === "leadership") && containsAny(normalized, junior)) return 18;
+  if (
+    (level === "senior" || level === "leadership") &&
+    containsAny(normalized, junior)
+  )
+    return 18;
   return 0;
 }
 
@@ -703,9 +892,10 @@ function calculateLocationFit(location: string, preferred: string[]): number {
   if (containsAny(normalized, ["remote", "work from home", "wfh"])) return 8;
   if (
     preferred.some((value) =>
-      hasMeaningfulOverlap(normalized, normalizeForMatch(value))
+      hasMeaningfulOverlap(normalized, normalizeForMatch(value)),
     )
-  ) return 10;
+  )
+    return 10;
   if (containsPhrase(normalized, "india")) return 5;
   return 1;
 }
@@ -716,15 +906,28 @@ function calculateWorkModeFit(mode: WorkMode, preferred: WorkMode[]): number {
   return 0;
 }
 
-function calculateEmploymentFit(value: string, preferred: EmploymentType[]): number {
+function calculateEmploymentFit(
+  value: string,
+  preferred: EmploymentType[],
+): number {
   const normalized = normalizeForMatch(value);
-  if (preferred.includes("full_time") && containsPhrase(normalized, "full time")) return 5;
-  if (preferred.includes("part_time") && containsPhrase(normalized, "part time")) return 5;
-  if (preferred.includes("contract") && containsPhrase(normalized, "contract")) return 5;
+  if (
+    preferred.includes("full_time") &&
+    containsPhrase(normalized, "full time")
+  )
+    return 5;
+  if (
+    preferred.includes("part_time") &&
+    containsPhrase(normalized, "part time")
+  )
+    return 5;
+  if (preferred.includes("contract") && containsPhrase(normalized, "contract"))
+    return 5;
   if (
     preferred.includes("internship") &&
     containsAny(normalized, ["intern", "internship", "trainee"])
-  ) return 5;
+  )
+    return 5;
   return 0;
 }
 
@@ -742,12 +945,21 @@ function calculateFreshness(postedAt: string): number {
 }
 
 function extractLocation(report: UnknownRecord): string {
-  const contact = isRecord(report.contact) ? cleanString(report.contact.location) : "";
+  const contact = isRecord(report.contact)
+    ? cleanString(report.contact.location)
+    : "";
   if (contact) return contact;
 
-  const profile = isRecord(report.candidateProfile) ? report.candidateProfile : null;
+  const profile = isRecord(report.candidateProfile)
+    ? report.candidateProfile
+    : null;
   if (profile) {
-    for (const key of ["location", "city", "currentLocation", "current_location"]) {
+    for (const key of [
+      "location",
+      "city",
+      "currentLocation",
+      "current_location",
+    ]) {
       const value = cleanString(profile[key]);
       if (value) return value;
     }
@@ -785,8 +997,10 @@ function detectWorkMode(value: string): WorkMode {
       "wfh",
       "anywhere in india",
     ])
-  ) return "remote";
-  if (containsAny(normalized, ["hybrid", "flexible workplace"])) return "hybrid";
+  )
+    return "remote";
+  if (containsAny(normalized, ["hybrid", "flexible workplace"]))
+    return "hybrid";
   return "onsite";
 }
 
@@ -805,16 +1019,21 @@ function normalizeContractType(value: string): string {
 }
 
 function formatJobArrangement(job: NormalizedJob): string {
-  return uniqueStrings(
-    [job.employmentType !== "Not specified" ? job.employmentType : "", titleCase(job.workMode)],
-    3
-  ).join(" • ") || "Not specified";
+  return (
+    uniqueStrings(
+      [
+        job.employmentType !== "Not specified" ? job.employmentType : "",
+        titleCase(job.workMode),
+      ],
+      3,
+    ).join(" • ") || "Not specified"
+  );
 }
 
 function formatSalary(
   minimum: number | null,
   maximum: number | null,
-  predicted: boolean
+  predicted: boolean,
 ): string {
   if (minimum === null && maximum === null) return "Not disclosed";
   const format = (value: number) =>
@@ -829,7 +1048,7 @@ function formatSalary(
 async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
-  timeoutMs = 15_000
+  timeoutMs = 15_000,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -855,19 +1074,39 @@ function isSafeAdzunaUrl(value: string): boolean {
   }
 }
 
+function isSafeExternalJobUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password &&
+      url.hostname !== "localhost" &&
+      url.hostname !== "127.0.0.1" &&
+      url.hostname !== "::1"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function ensureHttps(value: string): string {
   return value ? value.replace(/^http:\/\//i, "https://") : "";
 }
 
 function cleanSearchTitle(value: string): string {
-  return cleanString(value).replace(/\bjobs?\b/gi, "").replace(/\s+/g, " ").trim();
+  return cleanString(value)
+    .replace(/\bjobs?\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizeRoleFamily(value: string): string {
   return normalizeForMatch(value)
     .replace(
       /\b(senior|sr|junior|jr|associate|executive|specialist|analyst|officer|lead|manager|trainee|intern)\b/g,
-      ""
+      "",
     )
     .replace(/\s+/g, " ")
     .trim();
@@ -902,18 +1141,35 @@ function tokenSimilarity(left: string, right: string): number {
   for (const token of rightTokens) if (leftTokens.has(token)) matches += 1;
   const precision = matches / leftTokens.size;
   const recall = matches / rightTokens.size;
-  return precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
+  return precision + recall === 0
+    ? 0
+    : (2 * precision * recall) / (precision + recall);
 }
 
 function tokenSet(value: string): Set<string> {
   const stopWords = new Set([
-    "and", "or", "the", "a", "an", "of", "for", "to", "in", "with",
-    "job", "jobs", "role", "position", "opening", "required", "preferred",
+    "and",
+    "or",
+    "the",
+    "a",
+    "an",
+    "of",
+    "for",
+    "to",
+    "in",
+    "with",
+    "job",
+    "jobs",
+    "role",
+    "position",
+    "opening",
+    "required",
+    "preferred",
   ]);
   return new Set(
     normalizeForMatch(value)
       .split(" ")
-      .filter((token) => token.length > 1 && !stopWords.has(token))
+      .filter((token) => token.length > 1 && !stopWords.has(token)),
   );
 }
 

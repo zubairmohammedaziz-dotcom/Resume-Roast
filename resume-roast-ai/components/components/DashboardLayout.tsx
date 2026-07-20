@@ -4,4 +4,4 @@ export default function DashboardLayout() {
       Dashboard Layout Works
     </div>
   );
-}
+} 
