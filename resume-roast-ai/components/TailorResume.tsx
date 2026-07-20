@@ -51,6 +51,20 @@ type TailoredResult = {
   tailoredScore?: number;
 };
 
+type CoverLetterTone =
+  | "professional"
+  | "confident"
+  | "executive"
+  | "warm";
+
+type PremiumCoverLetterResult = {
+  coverLetter: string;
+  subjectLine?: string;
+  openingHook?: string;
+  keyStrengths?: string[];
+  qualityScore?: number;
+};
+
 export default function TailorResume({ report }: Props) {
   const [jobDescription, setJobDescription] = useState("");
   const [result, setResult] = useState<TailoredResult | null>(null);
@@ -58,6 +72,12 @@ export default function TailorResume({ report }: Props) {
   const [activePanel, setActivePanel] =
     useState<WorkspacePanel>("resume");
   const [message, setMessage] = useState("");
+  const [coverLetterResult, setCoverLetterResult] =
+    useState<PremiumCoverLetterResult | null>(null);
+  const [coverLetterDraft, setCoverLetterDraft] = useState("");
+  const [coverLetterTone, setCoverLetterTone] =
+    useState<CoverLetterTone>("professional");
+  const [coverLetterLoading, setCoverLetterLoading] = useState(false);
 
   const candidateName =
     report.candidateName?.trim() || "Candidate Name";
@@ -178,6 +198,18 @@ export default function TailorResume({ report }: Props) {
       }
 
       setResult(data);
+
+      if (typeof data.coverLetter === "string" && data.coverLetter.trim()) {
+        setCoverLetterResult({
+          coverLetter: data.coverLetter.trim(),
+          qualityScore:
+            typeof data.tailoredScore === "number"
+              ? Math.min(96, Math.max(70, Math.round(data.tailoredScore)))
+              : undefined,
+        });
+        setCoverLetterDraft(data.coverLetter.trim());
+      }
+
       setMessage("Your targeted resume is ready.");
     } catch (error) {
       console.error("Tailor resume error:", error);
@@ -215,15 +247,15 @@ export default function TailorResume({ report }: Props) {
   }
 
   function downloadCoverLetter() {
-    if (!result?.coverLetter) {
-      setMessage(
-        "Generate the tailored resume before downloading the cover letter."
-      );
+    const letter = coverLetterDraft.trim();
+
+    if (!letter) {
+      setMessage("Generate your premium cover letter before downloading.");
       return;
     }
 
-    const blob = new Blob([result.coverLetter], {
-      type: "text/plain",
+    const blob = new Blob([letter], {
+      type: "text/plain;charset=utf-8",
     });
 
     const url = URL.createObjectURL(blob);
@@ -240,6 +272,94 @@ export default function TailorResume({ report }: Props) {
     URL.revokeObjectURL(url);
 
     setMessage("Cover letter downloaded.");
+  }
+
+  async function generatePremiumCoverLetter() {
+    if (jobDescription.trim().length < 100) {
+      setMessage(
+        "Paste a complete job description of at least 100 characters."
+      );
+      return;
+    }
+
+    setCoverLetterLoading(true);
+    setMessage("Writing your premium cover letter...");
+    setActivePanel("cover-letter");
+
+    try {
+      const response = await fetch("/api/cover-letter", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          report,
+          jobDescription,
+          tone: coverLetterTone,
+          tailoredResume: result
+            ? {
+                candidateName:
+                  result.candidateName || candidateName,
+                headline: result.headline || headline,
+                tailoredSummary: result.tailoredSummary,
+                tailoredBullets: result.tailoredBullets,
+                tailoredSkills: result.tailoredSkills,
+                experience: result.experience || [],
+              }
+            : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.success === false) {
+        setMessage(
+          data.message || "The premium cover letter could not be generated."
+        );
+        return;
+      }
+
+      const nextResult: PremiumCoverLetterResult = {
+        coverLetter:
+          typeof data.coverLetter === "string"
+            ? data.coverLetter.trim()
+            : "",
+        subjectLine:
+          typeof data.subjectLine === "string"
+            ? data.subjectLine.trim()
+            : "",
+        openingHook:
+          typeof data.openingHook === "string"
+            ? data.openingHook.trim()
+            : "",
+        keyStrengths: Array.isArray(data.keyStrengths)
+          ? data.keyStrengths.filter(
+              (value: unknown): value is string =>
+                typeof value === "string" && Boolean(value.trim())
+            )
+          : [],
+        qualityScore:
+          typeof data.qualityScore === "number"
+            ? Math.min(98, Math.max(0, Math.round(data.qualityScore)))
+            : undefined,
+      };
+
+      if (!nextResult.coverLetter) {
+        setMessage("The AI returned an empty cover letter. Please retry.");
+        return;
+      }
+
+      setCoverLetterResult(nextResult);
+      setCoverLetterDraft(nextResult.coverLetter);
+      setMessage("Your premium cover letter is ready.");
+    } catch (error) {
+      console.error("Premium cover letter error:", error);
+      setMessage(
+        "Something went wrong while generating the cover letter."
+      );
+    } finally {
+      setCoverLetterLoading(false);
+    }
   }
 
   async function copyText(
@@ -362,9 +482,9 @@ export default function TailorResume({ report }: Props) {
                 active={activePanel === "cover-letter"}
                 label="Cover letter"
                 description={
-                  result?.coverLetter
-                    ? "Personalized letter ready"
-                    : "Generated after tailoring"
+                  coverLetterDraft
+                    ? "Premium letter ready"
+                    : "Generate for the target role"
                 }
                 icon={<LetterIcon />}
                 onClick={() =>
@@ -413,10 +533,17 @@ export default function TailorResume({ report }: Props) {
 
           {activePanel === "cover-letter" && (
             <CoverLetterWorkspace
-              coverLetter={result?.coverLetter || ""}
+              coverLetter={coverLetterDraft}
+              result={coverLetterResult}
+              tone={coverLetterTone}
+              loading={coverLetterLoading}
+              canGenerate={jobDescription.trim().length >= 100}
+              onToneChange={setCoverLetterTone}
+              onGenerate={generatePremiumCoverLetter}
+              onChange={setCoverLetterDraft}
               onCopy={() =>
                 copyText(
-                  result?.coverLetter || "",
+                  coverLetterDraft,
                   "Cover letter copied."
                 )
               }
@@ -590,61 +717,215 @@ function ResumeWorkspace({
 
 function CoverLetterWorkspace({
   coverLetter,
+  result,
+  tone,
+  loading,
+  canGenerate,
+  onToneChange,
+  onGenerate,
+  onChange,
   onCopy,
   onDownload,
 }: {
   coverLetter: string;
+  result: PremiumCoverLetterResult | null;
+  tone: CoverLetterTone;
+  loading: boolean;
+  canGenerate: boolean;
+  onToneChange: (tone: CoverLetterTone) => void;
+  onGenerate: () => void;
+  onChange: (value: string) => void;
   onCopy: () => void;
   onDownload: () => void;
 }) {
+  const wordCount = coverLetter.trim()
+    ? coverLetter.trim().split(/\s+/).length
+    : 0;
+
   return (
     <div className="p-5 md:p-8">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400">
-            Cover letter
+            Premium cover letter
           </p>
 
           <h2 className="mt-2 text-2xl font-semibold text-white">
-            Personalized application letter
+            A role-specific letter that sounds human
           </h2>
+
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+            Generate a truthful, recruiter-ready letter from your resume and
+            the target job description. You can edit every sentence before
+            copying or downloading it.
+          </p>
         </div>
 
-        {coverLetter && (
-          <div className="flex gap-2">
-            <ActionButton
-              label="Copy"
-              icon={<CopyIcon />}
-              onClick={onCopy}
-              variant="secondary"
-            />
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium text-zinc-500">
+              Writing tone
+            </span>
 
-            <ActionButton
-              label="Download"
-              icon={<DownloadIcon />}
-              onClick={onDownload}
-              variant="primary"
-            />
-          </div>
-        )}
+            <select
+              value={tone}
+              onChange={(event) =>
+                onToneChange(event.target.value as CoverLetterTone)
+              }
+              disabled={loading}
+              className="h-[42px] rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-zinc-200 outline-none transition focus:border-orange-500/60 disabled:opacity-50"
+            >
+              <option value="professional">Professional</option>
+              <option value="confident">Confident</option>
+              <option value="executive">Executive</option>
+              <option value="warm">Warm and human</option>
+            </select>
+          </label>
+
+          <button
+            onClick={onGenerate}
+            disabled={loading || !canGenerate}
+            className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-sm font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <SpinnerIcon />
+                Writing letter
+              </>
+            ) : (
+              <>
+                <SparkIcon />
+                {coverLetter ? "Regenerate" : "Generate premium letter"}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {coverLetter ? (
-        <article className="mx-auto mt-7 max-w-4xl rounded-2xl border border-white/10 bg-white px-7 py-10 text-slate-900 shadow-2xl md:px-12 md:py-14">
-          <p className="whitespace-pre-line text-[15px] leading-8">
-            {coverLetter}
-          </p>
-        </article>
-      ) : (
+      {!canGenerate && (
+        <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3 text-sm leading-6 text-amber-200">
+          Paste a complete job description in the left panel before generating
+          the premium cover letter.
+        </div>
+      )}
+
+      {loading && (
+        <div className="mt-6">
+          <ProcessingCard />
+        </div>
+      )}
+
+      {coverLetter && !loading ? (
+        <>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <MetricCard
+              label="Quality score"
+              value={
+                typeof result?.qualityScore === "number"
+                  ? `${result.qualityScore}%`
+                  : "Ready"
+              }
+              description="Recruiter and writing review"
+            />
+
+            <MetricCard
+              label="Length"
+              value={`${wordCount} words`}
+              description="Recommended: 220–320 words"
+            />
+
+            <MetricCard
+              label="Tone"
+              value={
+                tone === "warm"
+                  ? "Warm"
+                  : tone.charAt(0).toUpperCase() + tone.slice(1)
+              }
+              description="Adjust and regenerate anytime"
+            />
+          </div>
+
+          {result?.keyStrengths?.length ? (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-[#101010] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
+                Evidence emphasized
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {result.keyStrengths.map((strength) => (
+                  <span
+                    key={strength}
+                    className="rounded-full border border-orange-500/20 bg-orange-500/[0.07] px-3 py-1.5 text-xs text-orange-200"
+                  >
+                    {strength}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex flex-col justify-between gap-3 rounded-2xl border border-white/10 bg-[#101010] p-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-medium text-white">
+                Review and personalize
+              </p>
+              <p className="mt-1 text-xs text-zinc-600">
+                The letter is editable. Check names and application details
+                before sending.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <ActionButton
+                label="Copy"
+                icon={<CopyIcon />}
+                onClick={onCopy}
+                variant="secondary"
+              />
+
+              <ActionButton
+                label="Download"
+                icon={<DownloadIcon />}
+                onClick={onDownload}
+                variant="primary"
+              />
+            </div>
+          </div>
+
+          <article className="mx-auto mt-5 max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl">
+            {result?.subjectLine ? (
+              <div className="border-b border-slate-200 bg-slate-50 px-7 py-4 md:px-12">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Suggested email subject
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {result.subjectLine}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="px-7 py-8 md:px-12 md:py-12">
+              <textarea
+                value={coverLetter}
+                onChange={(event) => onChange(event.target.value)}
+                spellCheck
+                aria-label="Editable premium cover letter"
+                className="min-h-[620px] w-full resize-y border-0 bg-transparent text-[15px] leading-8 text-slate-900 outline-none"
+              />
+            </div>
+          </article>
+        </>
+      ) : !loading ? (
         <EmptyState
           icon={<LetterIcon />}
-          title="Generate your targeted resume first"
-          description="The personalized cover letter will appear here after tailoring."
+          title="Create your premium cover letter"
+          description="Choose a tone and generate a role-specific letter using your verified resume evidence and the target job description."
         />
-      )}
+      ) : null}
     </div>
   );
 }
+
 
 function InterviewWorkspace({
   jobDescription,
