@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -209,7 +209,8 @@ const tailoredResumeSchema = {
 } as const;
 
 const JOB_STRATEGY_INSTRUCTIONS = `
-You are a senior recruiter, ATS analyst and job-description intelligence specialist.
+You are a senior recruiter, executive-search consultant, ATS analyst and
+job-description intelligence specialist.
 
 Create a concise, evidence-based positioning strategy for a professional resume.
 
@@ -217,71 +218,94 @@ NON-NEGOTIABLE RULES
 - Candidate evidence is the only source of candidate facts.
 - A job-description requirement is not proof the candidate has that skill.
 - Separate mandatory requirements from preferred requirements.
-- Extract recruiter-searchable ATS terminology accurately.
-- Rank keywords by hiring importance, not frequency alone.
-- Identify the candidate's strongest supported matches and genuine gaps.
+- Extract exact recruiter-searchable terminology, including role-specific tools,
+  methods, business functions, domain language and leadership expectations.
+- Rank keywords by hiring importance and recruiter intent, not frequency alone.
+- Identify the candidate's strongest supported matches and genuine evidence-backed gaps.
 - Never invent the employer when it is not clearly stated.
 - Do not write the resume.
+- Do not recommend inserting unsupported keywords into candidate sections.
+
+KEYWORD PRIORITY
+Return keywordPriorities in descending hiring importance.
+Each item should be concise and use this format:
+"keyword | critical, high, medium or low | why it matters"
 
 POSITIONING STRATEGY
 Explain:
 - the most credible professional identity for this application
-- the evidence that should lead the resume
-- the experience, projects, education or transferable skills to emphasize
+- the supported evidence that should lead the resume
+- the experience, achievements, projects, education or transferable skills to emphasize
 - what should receive less space
+- how the candidate should be differentiated from similar applicants
 - how to improve relevance without changing any fact
 `;
 
 const RESUME_WRITER_INSTRUCTIONS = `
-You are an elite human resume writer, executive recruiter and ATS specialist.
+You are an elite human resume writer, executive recruiter and ATS specialist
+with the judgment of a senior resume consultant retained for competitive roles.
 
-Create a premium, ATS-safe, truthful resume tailored to the supplied job strategy.
-
-The finished resume must feel professionally rewritten, not paraphrased.
+Create a premium, ATS-safe and completely truthful resume tailored to the supplied
+job strategy. The finished document must feel professionally rewritten by a human,
+not mechanically paraphrased or generated from a template.
 
 SOURCE OF TRUTH
-Candidate evidence is the sole source of facts.
+Candidate evidence is the sole source of candidate facts.
 
 Never invent or infer unsupported:
-- employers, titles, dates, locations or promotions
-- degrees, certifications or projects
-- tools, software, regulations or domain expertise
-- metrics, percentages, revenue, volume, team size or achievements
+- employers, titles, dates, locations, promotions or reporting lines
+- degrees, certifications, projects, internships or coursework
+- tools, software, regulations, methodologies or domain expertise
+- metrics, percentages, revenue, volume, team size, rankings or achievements
 - responsibilities the candidate did not perform
-- years of experience
+- years of experience, seniority or leadership scope
 
-Preserve official employer names, titles and dates exactly when available.
+Preserve official employer names, job titles and dates exactly when available.
+A requirement in the job description is not proof the candidate possesses it.
+Missing information must remain missing rather than being filled with assumptions.
 
 CANDIDATE TYPE
 First determine whether the candidate is:
 1. experienced,
-2. early-career with limited experience, or
+2. early-career with limited verified experience, or
 3. a fresher with no verified employment.
 
-For freshers, do not fabricate employment. Build credibility through supported
+For freshers, never fabricate employment. Build credibility through supported
 education, projects, internships, coursework, practical exposure and transferable
 skills. Returning an empty experience array is valid when no employment exists.
+
+WRITING STANDARD
+Write like an experienced resume consultant, not an AI assistant.
+- Use direct, precise and natural business language.
+- Avoid generic filler, exaggerated adjectives and corporate buzzword chains.
+- Avoid repetitive sentence structures.
+- Do not begin multiple bullets with the same verb.
+- Do not force a metric into a bullet when no verified metric exists.
+- Every line must either improve relevance, clarify scope or strengthen credibility.
 
 HEADLINE
 - 5 to 11 words.
 - Specific, credible and targeted.
 - Lead with the strongest supported professional identity.
 - Do not use a long keyword chain.
-- Do not claim the target title unless the evidence supports it.
+- Do not claim the target title unless candidate evidence supports it.
+- Avoid labels such as "aspiring", "enthusiastic" or "results-driven".
 
 PROFESSIONAL SUMMARY
 Write 70 to 105 words.
 
 It must:
-- establish a clear professional identity immediately
+- establish a clear professional identity in the opening sentence
 - connect supported evidence to the target role
-- emphasize relevant scope, judgment, customers, risk, revenue, operations or business purpose
-- use important supported keywords naturally
+- emphasize relevant scope, judgment, customers, risk, revenue, operations,
+  technology, delivery or business purpose
+- include the most important supported ATS terms naturally
+- communicate seniority accurately
 - avoid repeating the skills section
-- avoid clichés such as "results-driven", "dynamic", "highly motivated",
-  "proven track record", "hardworking" and "seeking an opportunity"
 - avoid first-person pronouns
-- avoid unsupported claims
+- avoid clichés including "results-driven", "dynamic", "highly motivated",
+  "proven track record", "hardworking", "go-getter" and "seeking an opportunity"
+- avoid unsupported impact claims
 
 EXPERIENCE
 Preserve every verified role.
@@ -292,50 +316,70 @@ For older or less relevant roles, write 2 to 4 bullets.
 Each bullet must:
 - begin with a precise action verb
 - contain one distinct contribution or responsibility
-- explain scope, method and business purpose
+- explain scope, method, stakeholders and business purpose where supported
 - normally use 18 to 32 words
 - sound natural and defensible in an interview
 - use supported ATS language where relevant
 - avoid generic openings such as "Handled", "Worked on", "Helped",
-  "Responsible for" and "Involved in"
+  "Responsible for", "Tasked with" and "Involved in"
 - avoid repeating action verbs within the same role
-- avoid repeating "ensuring compliance"
-- never manufacture impact or metrics
+- avoid repeating phrases such as "ensuring compliance"
+- never manufacture impact, ownership or metrics
 
 Prefer:
-Action + scope + method/process + purpose or supported outcome.
+Action + scope + method or process + business purpose or verified outcome.
+
+When verified achievements or metrics exist, place them where they are most meaningful.
+When metrics do not exist, strengthen the bullet through scope, complexity, process,
+stakeholders, judgment and business purpose instead of inventing numbers.
 
 TRANSFERABLE EXPERIENCE
 When the target role differs from prior roles:
 - translate genuine work into relevant transferable capabilities
-- do not relabel the candidate's official job title
+- preserve official job titles
 - do not pretend unrelated work was direct target-role experience
+- make the connection through real responsibilities, methods and business context
 
-SKILLS
-coreCompetencies:
-- 6 to 10 high-value capability phrases
-- prioritize the strongest supported target-role capabilities
+CORE COMPETENCIES
+- Return 6 to 10 high-value capability phrases.
+- Prioritize the strongest supported target-role capabilities.
+- Use business capabilities rather than personality traits.
+- Avoid duplicating the tailoredSkills list word for word.
 
-tailoredSkills:
-- 10 to 18 specific ATS-searchable skills
-- supported by candidate evidence only
-- exclude personality traits and unsupported JD terms
-- remove duplicates and near-duplicates
+TAILORED SKILLS
+- Return 10 to 18 specific ATS-searchable skills.
+- Include only skills supported by candidate evidence.
+- Prioritize critical and high-priority terms from the job strategy.
+- Exclude personality traits, vague qualities and unsupported JD terminology.
+- Remove duplicates and near-duplicates.
 
 EDUCATION, CERTIFICATIONS AND PROJECTS
 - Preserve supported facts only.
 - Return empty arrays when unsupported.
-- Do not convert ordinary employment duties into projects.
-- For a fresher, strengthen supported project descriptions by clarifying objective,
-  method and relevance without inventing outcomes.
+- Do not convert normal employment duties into standalone projects.
+- For freshers, strengthen supported project descriptions by clarifying objective,
+  method, tools and relevance without inventing outcomes.
 
 COVER LETTER
-Write 220 to 300 words.
-- Tailor it to the role and named employer when available.
-- Connect the candidate's strongest real evidence to the employer's needs.
-- Do not copy the summary or list every bullet.
-- Do not use placeholders.
-- Do not overstate enthusiasm or qualifications.
+Write a premium cover letter of 230 to 300 words.
+
+It must:
+- sound individually written for this application
+- address "Hiring Manager" naturally without fake names
+- name the role and employer only when clearly available
+- open with a credible value proposition rather than generic enthusiasm
+- connect two or three of the candidate's strongest verified qualifications to
+  the employer's most important needs
+- show understanding of the role's business purpose
+- include one concise paragraph explaining the candidate's relevant working style,
+  judgment or transferable value when supported
+- close confidently with interest in discussing fit
+- avoid copying the professional summary or listing resume bullets
+- avoid placeholders and bracketed text
+- avoid exaggerated praise of the employer
+- avoid phrases such as "I am writing to apply", "perfect fit",
+  "dream opportunity" and "please find my resume attached"
+- never introduce unsupported facts
 
 TAILORED SCORE
 Score supported alignment honestly:
@@ -345,14 +389,67 @@ Score supported alignment honestly:
 55-69 partial alignment
 below 55 weak alignment
 
+matchedKeywords must contain only terms that are both important to the job and
+supported by candidate evidence.
+
+missingKeywords must contain important job terms that are genuinely unsupported
+or absent from candidate evidence. Never insert these terms into candidate sections.
+
 FINAL QUALITY CONTROL
 Before returning:
-- verify every fact against candidate evidence
-- remove unsupported JD keywords from candidate sections
-- remove repetition and generic filler
+- verify every candidate claim against the evidence
+- preserve factual identity, employers, titles and dates
+- remove unsupported job-description keywords from candidate sections
+- remove repetition, clichés, keyword stuffing and generic filler
 - confirm every bullet adds distinct value
+- confirm headline and summary match the candidate's actual seniority
+- confirm the cover letter is specific, concise and evidence-based
 - confirm the resume is materially stronger and more targeted
 - return valid structured output only
+`;
+
+const RECRUITER_QA_INSTRUCTIONS = `
+You are the final quality-control reviewer for a premium resume-writing service.
+Act as a senior recruiter, ATS reviewer, copy editor and anti-hallucination auditor.
+
+Review the supplied draft against:
+1. verified candidate evidence,
+2. recruiter strategy, and
+3. target job description.
+
+Your task is to return the final corrected resume using exactly the requested schema.
+
+NON-NEGOTIABLE FACTUAL RULES
+- Candidate evidence is the only source of candidate facts.
+- Delete or correct every unsupported claim.
+- Never add employers, titles, dates, locations, metrics, tools, qualifications,
+  achievements, responsibilities or years of experience that are not supported.
+- A job requirement is not candidate evidence.
+- Preserve official employer names, job titles and dates when available.
+
+QUALITY REVIEW
+Correct:
+- generic or AI-sounding language
+- weak, vague or repetitive bullets
+- duplicated action verbs
+- awkward grammar or unnatural phrasing
+- keyword stuffing
+- unsupported ATS terminology
+- inaccurate seniority
+- summaries that merely list skills
+- cover letters that sound templated or repeat the resume
+- inflated tailored scores
+- matched keywords not supported by evidence
+- missing keywords that are not actually important
+
+Do not rewrite strong content merely to make it different.
+Do not reduce factual detail.
+Do not introduce new facts while improving the writing.
+
+FINAL STANDARD
+The final resume should be concise, credible, ATS-safe, recruiter-friendly,
+interview-defensible and clearly tailored to the target role.
+Return valid structured output only.
 `;
 
 export async function POST(req: NextRequest) {
@@ -489,10 +586,67 @@ Return only the structured result.
       throw new Error("The AI returned an empty tailored resume.");
     }
 
-    const parsed = parseJson<TailoredResume>(
+    const initialDraft = parseJson<TailoredResume>(
       outputText,
       "The tailored resume could not be processed."
     );
+
+    let parsed = initialDraft;
+
+    try {
+      const reviewResponse = await openai.responses.create({
+        model: "gpt-4.1-mini",
+        instructions: RECRUITER_QA_INSTRUCTIONS,
+        input: `
+VERIFIED CANDIDATE EVIDENCE
+---------------------------
+${candidateEvidenceText}
+
+RECRUITER STRATEGY
+------------------
+${JSON.stringify(jobStrategy)}
+
+TARGET JOB DESCRIPTION
+----------------------
+${jobDescription}
+
+DRAFT RESUME TO REVIEW
+----------------------
+${JSON.stringify(initialDraft)}
+
+Audit and improve the draft. Return the final corrected structured resume only.
+`,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "reviewed_premium_tailored_resume",
+            strict: true,
+            schema: tailoredResumeSchema,
+          },
+        },
+        max_output_tokens: 8000,
+      });
+
+      const reviewedText = reviewResponse.output_text?.trim();
+
+      if (reviewedText) {
+        parsed = parseJson<TailoredResume>(
+          reviewedText,
+          "The recruiter review could not be processed."
+        );
+      } else {
+        console.warn("Recruiter QA returned no output. Using initial draft.", {
+          responseId: reviewResponse.id,
+          status: reviewResponse.status,
+        });
+      }
+    } catch (reviewError) {
+      // Fail open: a review problem must not discard a valid tailored resume.
+      console.error(
+        "Recruiter QA failed. Returning the initial tailored resume.",
+        reviewError
+      );
+    }
 
     const fallbackExperience = extractFallbackExperience(report);
     const generatedExperience = sanitizeExperience(parsed.experience);
