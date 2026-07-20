@@ -15,9 +15,9 @@ export default function Navbar() {
           </div>
 
           <div>
-            <p className="text-lg font-black text-white">Resume Roast AI</p>
+            <p className="text-lg font-black text-white">OffernHire AI</p>
             <p className="text-xs text-zinc-500">
-              From Resume to Offer Letter
+              From Resume to Offer Letter- AI Career Copilot
             </p>
           </div>
         </Link>
@@ -35,9 +35,9 @@ export default function Navbar() {
             Pricing
           </Link>
 
-          <Link href="/#faq" className="hover:text-orange-400">
+          <a href="/#faq">
             FAQ
-          </Link>
+          </a>
         </nav>
 
         <div className="flex items-center gap-3">
