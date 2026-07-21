@@ -7,7 +7,9 @@ import {
   Crown,
   Loader2,
   LockKeyhole,
+  QrCode,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   X,
 } from "lucide-react";
@@ -25,6 +27,41 @@ type Plan = {
   buttonText: string;
   highlight: boolean;
 };
+
+type RazorpaySuccessResponse = {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayOptions = {
+  key: string;
+  subscription_id: string;
+  name: string;
+  description: string;
+  prefill: {
+    name: string;
+    email: string;
+  };
+  notes: {
+    plan: string;
+  };
+  theme: {
+    color: string;
+  };
+  handler: (response: RazorpaySuccessResponse) => Promise<void>;
+  modal: {
+    ondismiss: () => void;
+  };
+};
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => {
+      open: () => void;
+    };
+  }
+}
 
 const plans: Plan[] = [
   {
@@ -117,6 +154,35 @@ const plans: Plan[] = [
   },
 ];
 
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true));
+      existingScript.addEventListener("error", () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+
+    document.body.appendChild(script);
+  });
+}
+
 export default function Pricing() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
@@ -124,7 +190,10 @@ export default function Pricing() {
   function scrollToAnalyzer() {
     document
       .getElementById("resume-analyzer")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
   }
 
   async function handleProClick() {
@@ -134,8 +203,16 @@ export default function Pricing() {
     setCheckoutError("");
 
     try {
+      const loaded = await loadRazorpayScript();
+
+      if (!loaded) {
+        throw new Error(
+          "Unable to load the secure payment window. Please refresh and try again."
+        );
+      }
+
       const response = await fetch(
-        "/api/stripe/create-checkout-session",
+        "/api/razorpay/create-subscription",
         {
           method: "POST",
           headers: {
@@ -145,28 +222,112 @@ export default function Pricing() {
       );
 
       const data = (await response.json()) as {
-        url?: string;
+        keyId?: string;
+        subscriptionId?: string;
+        customer?: {
+          name?: string;
+          email?: string;
+        };
         error?: string;
       };
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to start checkout.");
+        throw new Error(
+          data.error || "Unable to start subscription checkout."
+        );
       }
 
-      if (!data.url) {
-        throw new Error("Stripe checkout URL was not returned.");
+      if (!data.keyId || !data.subscriptionId) {
+        throw new Error(
+          "Razorpay subscription information was not returned."
+        );
       }
 
-      window.location.assign(data.url);
+      const options: RazorpayOptions = {
+        key: data.keyId,
+        subscription_id: data.subscriptionId,
+
+        name: "OffernHire",
+        description: "OffernHire Pro — ₹199/month",
+
+        prefill: {
+          name: data.customer?.name || "",
+          email: data.customer?.email || "",
+        },
+
+        notes: {
+          plan: "pro_monthly",
+        },
+
+        theme: {
+          color: "#f97316",
+        },
+
+        handler: async (paymentResponse) => {
+          try {
+            const verificationResponse = await fetch(
+              "/api/razorpay/verify-subscription",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(paymentResponse),
+              }
+            );
+
+            const verificationData =
+              (await verificationResponse.json()) as {
+                success?: boolean;
+                error?: string;
+              };
+
+            if (
+              !verificationResponse.ok ||
+              !verificationData.success
+            ) {
+              throw new Error(
+                verificationData.error ||
+                  "Payment completed, but verification is pending."
+              );
+            }
+
+            window.location.assign("/success");
+          } catch (verificationError) {
+            const message =
+              verificationError instanceof Error
+                ? verificationError.message
+                : "Payment verification failed. Please contact support.";
+
+            console.error(
+              "Razorpay verification error:",
+              verificationError
+            );
+
+            setCheckoutError(message);
+            setCheckoutLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            setCheckoutLoading(false);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.open();
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unable to start checkout. Please try again.";
 
-      console.error("Stripe checkout error:", error);
+      console.error("Razorpay checkout error:", error);
+
       setCheckoutError(message);
-    } finally {
       setCheckoutLoading(false);
     }
   }
@@ -182,14 +343,20 @@ export default function Pricing() {
         className="pointer-events-none absolute inset-0"
       >
         <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-orange-500/10 blur-3xl" />
+
         <div className="absolute right-0 top-1/3 h-72 w-72 rounded-full bg-amber-500/[0.05] blur-3xl" />
+
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
       </div>
 
       <div className="relative">
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.08] px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-orange-300">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            <Sparkles
+              className="h-3.5 w-3.5"
+              aria-hidden="true"
+            />
+
             Simple, transparent pricing
           </div>
 
@@ -201,8 +368,9 @@ export default function Pricing() {
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-zinc-400 md:text-lg">
-            Understand your resume for free. Upgrade when you want tailored
-            applications, premium exports and unlimited career support.
+            Understand your resume for free. Upgrade for tailored
+            applications, premium exports and unlimited career
+            support.
           </p>
         </div>
 
@@ -218,7 +386,11 @@ export default function Pricing() {
             >
               {plan.highlight && (
                 <div className="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
-                  <Crown className="h-3.5 w-3.5" aria-hidden="true" />
+                  <Crown
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
+
                   Best value
                 </div>
               )}
@@ -232,9 +404,15 @@ export default function Pricing() {
                   }`}
                 >
                   {plan.highlight ? (
-                    <Crown className="h-5 w-5" aria-hidden="true" />
+                    <Crown
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    />
                   ) : (
-                    <Sparkles className="h-5 w-5" aria-hidden="true" />
+                    <Sparkles
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    />
                   )}
                 </div>
 
@@ -264,7 +442,9 @@ export default function Pricing() {
                   <li
                     key={feature.text}
                     className={`flex items-start gap-3 text-sm leading-6 ${
-                      feature.included ? "text-zinc-200" : "text-zinc-600"
+                      feature.included
+                        ? "text-zinc-200"
+                        : "text-zinc-600"
                     }`}
                   >
                     <span
@@ -293,7 +473,9 @@ export default function Pricing() {
 
                     <span
                       className={
-                        feature.emphasis ? "font-bold text-white" : ""
+                        feature.emphasis
+                          ? "font-bold text-white"
+                          : ""
                       }
                     >
                       {feature.text}
@@ -306,7 +488,9 @@ export default function Pricing() {
                 type="button"
                 disabled={plan.highlight && checkoutLoading}
                 onClick={
-                  plan.highlight ? handleProClick : scrollToAnalyzer
+                  plan.highlight
+                    ? handleProClick
+                    : scrollToAnalyzer
                 }
                 className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
                   plan.highlight
@@ -320,11 +504,13 @@ export default function Pricing() {
                       className="h-4 w-4 animate-spin"
                       aria-hidden="true"
                     />
+
                     Opening secure checkout...
                   </>
                 ) : (
                   <>
                     {plan.buttonText}
+
                     <ArrowRight
                       className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
                       aria-hidden="true"
@@ -345,13 +531,32 @@ export default function Pricing() {
           ))}
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-sm text-zinc-400 sm:grid-cols-3">
+        <div className="mx-auto mt-8 grid max-w-4xl gap-3 text-sm text-zinc-400 sm:grid-cols-4">
           <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
             <ShieldCheck
               className="h-4 w-4 text-orange-400"
               aria-hidden="true"
             />
-            Secure Stripe checkout
+
+            Secure Razorpay checkout
+          </div>
+
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+            <Smartphone
+              className="h-4 w-4 text-orange-400"
+              aria-hidden="true"
+            />
+
+            UPI AutoPay
+          </div>
+
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+            <QrCode
+              className="h-4 w-4 text-orange-400"
+              aria-hidden="true"
+            />
+
+            QR on desktop
           </div>
 
           <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
@@ -359,21 +564,16 @@ export default function Pricing() {
               className="h-4 w-4 text-orange-400"
               aria-hidden="true"
             />
-            Pro access is protected
-          </div>
 
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
-            <Check
-              className="h-4 w-4 text-orange-400"
-              aria-hidden="true"
-            />
             Cancel anytime
           </div>
         </div>
 
         <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
-          Pro renews monthly until cancelled. Taxes may apply where required.
-          Your billing and subscription can be managed securely through Stripe.
+          Pro renews automatically at ₹199 per month until
+          cancelled. Complete the recurring-payment mandate through
+          an eligible card or UPI AutoPay. Desktop UPI checkout may
+          display a QR code for approval.
         </p>
       </div>
     </section>
