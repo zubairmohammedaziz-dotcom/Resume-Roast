@@ -36,7 +36,7 @@ export async function POST() {
 
     const subscription = await razorpay.subscriptions.create({
       plan_id: PLAN_ID,
-      total_count: 120,
+      total_count: 12,
       quantity: 1,
       customer_notify: 1,
       notes: {

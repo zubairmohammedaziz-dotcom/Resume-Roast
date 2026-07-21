@@ -569,12 +569,11 @@ export default function Pricing() {
           </div>
         </div>
 
-        <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
-          Pro renews automatically at ₹199 per month until
-          cancelled. Complete the recurring-payment mandate through
-          an eligible card or UPI AutoPay. Desktop UPI checkout may
-          display a QR code for approval.
-        </p>
+       <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
+  Pro renews automatically at ₹199 per month. Cancel anytime.
+  Secure recurring payments are processed by Razorpay through
+  UPI AutoPay, QR code, or an eligible card.
+</p>
       </div>
     </section>
   );
