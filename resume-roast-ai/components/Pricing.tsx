@@ -248,7 +248,7 @@ export default function Pricing() {
         subscription_id: data.subscriptionId,
 
         name: "OffernHire",
-        description: "OffernHire Pro — ₹199/month",
+        description: "₹199/month • Cancel anytime",
 
         prefill: {
           name: data.customer?.name || "",
