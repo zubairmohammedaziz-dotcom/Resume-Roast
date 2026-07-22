@@ -7,17 +7,20 @@ export default function Navbar() {
   const { data: session, status } = useSession();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500 text-xl font-black text-black">
+    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black/90 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-6 sm:py-4">
+        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-lg font-black text-black sm:h-10 sm:w-10 sm:text-xl">
             R
           </div>
 
-          <div>
-            <p className="text-lg font-black text-white">OffernHire AI</p>
-            <p className="text-xs text-zinc-500">
-              From Resume to Offer Letter- AI Career Copilot
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-white sm:text-lg">
+              OffernHire AI
+            </p>
+
+            <p className="hidden text-xs text-zinc-500 sm:block">
+              From Resume to Offer Letter — AI Career Copilot
             </p>
           </div>
         </Link>
@@ -35,19 +38,19 @@ export default function Navbar() {
             Pricing
           </Link>
 
-          <a href="/#faq">
+          <Link href="/#faq" className="hover:text-orange-400">
             FAQ
-          </a>
+          </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {status === "loading" ? (
-            <div className="h-10 w-24 animate-pulse rounded-xl bg-zinc-800" />
+            <div className="h-9 w-20 animate-pulse rounded-xl bg-zinc-800 sm:h-10 sm:w-24" />
           ) : session ? (
             <>
               <Link
                 href="/dashboard"
-                className="hidden rounded-xl border border-zinc-700 px-4 py-2 text-sm font-bold text-white hover:border-orange-500 md:block"
+                className="rounded-xl border border-zinc-700 px-3 py-2 text-xs font-bold text-white hover:border-orange-500 sm:px-4 sm:text-sm"
               >
                 Dashboard
               </Link>
@@ -55,7 +58,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-800"
+                className="hidden rounded-xl bg-zinc-900 px-4 py-2 text-sm font-bold text-white hover:bg-zinc-800 sm:block"
               >
                 Sign Out
               </button>
@@ -69,14 +72,14 @@ export default function Navbar() {
                     callbackUrl: "/dashboard",
                   })
                 }
-                className="hidden rounded-xl px-4 py-2 text-sm font-bold text-zinc-300 hover:text-white md:block"
+                className="rounded-xl border border-zinc-700 px-3 py-2 text-xs font-bold text-white hover:border-orange-500 hover:text-orange-400 sm:px-4 sm:text-sm"
               >
                 Sign In
               </button>
 
               <Link
                 href="/#resume-analyzer"
-                className="rounded-xl bg-orange-500 px-5 py-2 text-sm font-black text-black hover:bg-orange-400"
+                className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-black hover:bg-orange-400 sm:px-5 sm:text-sm"
               >
                 Get Started
               </Link>
