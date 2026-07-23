@@ -17,6 +17,26 @@ import {
 
 type WorkspaceTab = "overview" | "jobs" | "tailor";
 
+type AnalyticsDataLayer = Array<Record<string, unknown>>;
+
+function trackEvent(
+  eventName: string,
+  parameters: Record<string, string | number | boolean> = {}
+) {
+  if (typeof window === "undefined") return;
+
+  const analyticsWindow = window as typeof window & {
+    dataLayer?: AnalyticsDataLayer;
+  };
+
+  analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
+
+  analyticsWindow.dataLayer.push({
+    event: eventName,
+    ...parameters,
+  });
+}
+
 type AnalysisStage =
   | "idle"
   | "uploading"
@@ -105,6 +125,11 @@ export default function Home() {
   return;
 }
 
+    trackEvent("resume_analysis_started", {
+      file_type: selectedFile.name.split(".").pop()?.toLowerCase() || "unknown",
+      file_size_kb: Math.round(selectedFile.size / 1024),
+    });
+
     try {
       setIsLoading(true);
       setReport(null);
@@ -136,6 +161,11 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
+        trackEvent("resume_analysis_failed", {
+          failure_type: "api_response",
+          status_code: response.status,
+        });
+
         setAnalysisStage("idle");
         setStatus(data.message || "Resume analysis failed.");
         return;
@@ -268,8 +298,20 @@ export default function Home() {
 
       setAnalysisStage("complete");
       setStatus("Analysis complete.");
+
+      trackEvent("resume_analysis_completed", {
+        ats_score: reportData.atsScore,
+        recruiter_score: reportData.recruiterScore,
+        hiring_probability: reportData.hiringProbability,
+        job_matches_count: reportData.jobMatches.length,
+      });
     } catch (error) {
       console.error("Resume analysis error:", error);
+
+      trackEvent("resume_analysis_failed", {
+        failure_type: "unexpected_error",
+      });
+
       setAnalysisStage("idle");
       setStatus("Something went wrong. Please try again.");
     } finally {
@@ -349,6 +391,11 @@ export default function Home() {
               setStatus("");
               setJobRecommendations([]);
               setAnalysisStage("idle");
+
+              trackEvent("resume_uploaded", {
+                file_type: file.name.split(".").pop()?.toLowerCase() || "unknown",
+                file_size_kb: Math.round(file.size / 1024),
+              });
             }}
             onRemoveFile={() => {
               setSelectedFile(null);
