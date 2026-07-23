@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
+import { GoogleTagManager } from "@next/third-parties/google";
 import Providers from "./Providers";
 import {
   organizationSchema,
@@ -72,25 +72,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <GoogleTagManager gtmId="GTM-MLWFPMCS" />
 
-        {/* Google Analytics */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-1NY8X9F191"
-          strategy="afterInteractive"
-        />
-
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-
-            gtag('config', 'G-1NY8X9F191');
-          `}
-        </Script>
-
-        {/* Organization Schema */}
+      <body className="flex min-h-full flex-col">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -98,7 +82,6 @@ export default function RootLayout({
           }}
         />
 
-        {/* Website Schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -106,7 +89,6 @@ export default function RootLayout({
           }}
         />
 
-        {/* Software Schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -115,7 +97,6 @@ export default function RootLayout({
         />
 
         <Providers>{children}</Providers>
-
       </body>
     </html>
   );
