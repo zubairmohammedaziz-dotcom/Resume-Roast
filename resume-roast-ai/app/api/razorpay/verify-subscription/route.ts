@@ -29,6 +29,8 @@ export async function POST(request: Request) {
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!keyId || !keySecret) {
+      console.error("Missing Razorpay environment variables.");
+
       return NextResponse.json(
         { error: "Payment configuration is incomplete." },
         { status: 500 }
@@ -37,9 +39,9 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as VerifyBody;
 
-    const paymentId = body.razorpay_payment_id;
-    const subscriptionId = body.razorpay_subscription_id;
-    const signature = body.razorpay_signature;
+    const paymentId = body.razorpay_payment_id?.trim();
+    const subscriptionId = body.razorpay_subscription_id?.trim();
+    const signature = body.razorpay_signature?.trim();
 
     if (!paymentId || !subscriptionId || !signature) {
       return NextResponse.json(
@@ -48,19 +50,34 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+      IMPORTANT:
+      Razorpay Subscription signature format is:
+
+      razorpay_subscription_id|razorpay_payment_id
+
+      The previous code had these values in the wrong order.
+    */
+    const signaturePayload = `${subscriptionId}|${paymentId}`;
+
     const expectedSignature = crypto
       .createHmac("sha256", keySecret)
-      .update(`${paymentId}|${subscriptionId}`)
+      .update(signaturePayload)
       .digest("hex");
 
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const receivedBuffer = Buffer.from(signature, "utf8");
+
     const isValid =
-      expectedSignature.length === signature.length &&
-      crypto.timingSafeEqual(
-        Buffer.from(expectedSignature),
-        Buffer.from(signature)
-      );
+      expectedBuffer.length === receivedBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 
     if (!isValid) {
+      console.error("Razorpay signature verification failed.", {
+        paymentId,
+        subscriptionId,
+      });
+
       return NextResponse.json(
         { error: "Payment verification failed." },
         { status: 400 }
@@ -77,45 +94,98 @@ export async function POST(request: Request) {
       razorpay.subscriptions.fetch(subscriptionId),
     ]);
 
+    if (payment.status !== "captured") {
+      console.error("Payment is not captured.", {
+        paymentId,
+        paymentStatus: payment.status,
+      });
+
+      return NextResponse.json(
+        { error: "Payment has not been captured yet." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      payment.subscription_id &&
+      payment.subscription_id !== subscriptionId
+    ) {
+      console.error("Payment and subscription do not match.", {
+        paymentSubscriptionId: payment.subscription_id,
+        receivedSubscriptionId: subscriptionId,
+      });
+
+      return NextResponse.json(
+        { error: "Payment does not match the subscription." },
+        { status: 400 }
+      );
+    }
+
+    /*
+      A newly authorised Razorpay subscription may temporarily show
+      "authenticated" even though the first payment is captured.
+
+      Since the payment has been securely verified and captured,
+      activate Pro immediately.
+    */
     const subscriptionRecord = {
       user_id: session.user.id,
-      user_email: session.user.email,
+      user_email: session.user.email.toLowerCase(),
       plan: "pro_monthly",
-      status: subscription.status,
+      status: "active",
       razorpay_customer_id: subscription.customer_id ?? null,
       razorpay_subscription_id: subscriptionId,
-      razorpay_plan_id: subscription.plan_id,
+      razorpay_plan_id: subscription.plan_id ?? null,
       current_period_end: subscription.current_end
         ? new Date(subscription.current_end * 1000).toISOString()
         : null,
       payment_method: payment.method ?? null,
+      cancel_at_period_end: false,
     };
 
-    const { data: existingSubscription } = await supabaseAdmin
-      .from("subscriptions")
-      .select("id")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
+    const { data: existingSubscription, error: lookupError } =
+      await supabaseAdmin
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
 
-    const databaseResult = existingSubscription
-      ? await supabaseAdmin
-          .from("subscriptions")
-          .update(subscriptionRecord)
-          .eq("id", existingSubscription.id)
-      : await supabaseAdmin
-          .from("subscriptions")
-          .insert(subscriptionRecord);
-
-    if (databaseResult.error) {
-      console.error(
-        "Supabase subscription error:",
-        databaseResult.error
-      );
+    if (lookupError) {
+      console.error("Supabase subscription lookup error:", lookupError);
 
       return NextResponse.json(
         {
           error:
-            "Payment verified, but Pro activation failed. Please contact support.",
+            "Payment was verified, but subscription activation failed.",
+        },
+        { status: 500 }
+      );
+    }
+
+    let databaseError = null;
+
+    if (existingSubscription?.id) {
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .update(subscriptionRecord)
+        .eq("id", existingSubscription.id);
+
+      databaseError = error;
+    } else {
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .insert(subscriptionRecord);
+
+      databaseError = error;
+    }
+
+    if (databaseError) {
+      console.error("Supabase subscription save error:", databaseError);
+
+      return NextResponse.json(
+        {
+          error:
+            "Payment was verified, but Pro activation failed. Please contact support.",
         },
         { status: 500 }
       );
@@ -123,14 +193,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      subscriptionId,
+      plan: "pro",
+      status: "active",
       paymentId,
+      subscriptionId,
     });
   } catch (error) {
     console.error("Razorpay verification error:", error);
 
     return NextResponse.json(
-      { error: "Unable to verify and activate subscription." },
+      { error: "Unable to verify and activate the subscription." },
       { status: 500 }
     );
   }
