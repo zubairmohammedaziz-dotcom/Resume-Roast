@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { GoogleTagManager } from "@next/third-parties/google";
+
 import Providers from "./Providers";
 import {
   organizationSchema,
   websiteSchema,
   softwareSchema,
 } from "./schema";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,6 +63,10 @@ export const metadata: Metadata = {
   },
 };
 
+function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -72,27 +77,25 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <GoogleTagManager gtmId="GTM-MLWFPMCS" />
-
       <body className="flex min-h-full flex-col">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(organizationSchema),
+            __html: safeJsonLd(organizationSchema),
           }}
         />
 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(websiteSchema),
+            __html: safeJsonLd(websiteSchema),
           }}
         />
 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(softwareSchema),
+            __html: safeJsonLd(softwareSchema),
           }}
         />
 
