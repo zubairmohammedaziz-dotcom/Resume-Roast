@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -13,6 +13,9 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+
+const PLAN_KEY = "offernhire_plan";
+const PLAN_UPDATED_EVENT = "offernhire-plan-updated";
 
 type Plan = {
   name: "Free" | "Pro";
@@ -53,6 +56,10 @@ type RazorpayOptions = {
   modal: {
     ondismiss: () => void;
   };
+};
+
+type SubscriptionStatusResponse = {
+  isPro?: boolean;
 };
 
 declare global {
@@ -161,13 +168,28 @@ function loadRazorpayScript(): Promise<boolean> {
       return;
     }
 
-    const existingScript = document.querySelector(
+    const existingScript = document.querySelector<HTMLScriptElement>(
       'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(true));
-      existingScript.addEventListener("error", () => resolve(false));
+      if (existingScript.dataset.loaded === "true") {
+        resolve(true);
+        return;
+      }
+
+      existingScript.addEventListener(
+        "load",
+        () => resolve(true),
+        { once: true }
+      );
+
+      existingScript.addEventListener(
+        "error",
+        () => resolve(false),
+        { once: true }
+      );
+
       return;
     }
 
@@ -176,7 +198,11 @@ function loadRazorpayScript(): Promise<boolean> {
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
 
-    script.onload = () => resolve(true);
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve(true);
+    };
+
     script.onerror = () => resolve(false);
 
     document.body.appendChild(script);
@@ -186,6 +212,123 @@ function loadRazorpayScript(): Promise<boolean> {
 export default function Pricing() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const [isPro, setIsPro] = useState(false);
+  const [planLoading, setPlanLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function updateFromLocalStorage() {
+      const proActive =
+        localStorage.getItem(PLAN_KEY) === "pro";
+
+      if (!cancelled) {
+        setIsPro(proActive);
+      }
+    }
+
+    async function verifySubscriptionStatus() {
+      updateFromLocalStorage();
+
+      try {
+        const response = await fetch(
+          "/api/subscription/status",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+
+        if (response.status === 401) {
+          localStorage.removeItem(PLAN_KEY);
+
+          if (!cancelled) {
+            setIsPro(false);
+          }
+
+          return;
+        }
+
+        if (!response.ok) {
+          console.error(
+            "Unable to check subscription status:",
+            response.status
+          );
+
+          return;
+        }
+
+        const data =
+          (await response.json()) as SubscriptionStatusResponse;
+
+        if (cancelled) {
+          return;
+        }
+
+        if (data.isPro === true) {
+          localStorage.setItem(PLAN_KEY, "pro");
+          setIsPro(true);
+        } else {
+          localStorage.removeItem(PLAN_KEY);
+          setIsPro(false);
+        }
+      } catch (error) {
+        console.error(
+          "Subscription status check failed:",
+          error
+        );
+      } finally {
+        if (!cancelled) {
+          setPlanLoading(false);
+        }
+      }
+    }
+
+    function handlePlanUpdate() {
+      updateFromLocalStorage();
+      void verifySubscriptionStatus();
+    }
+
+    void verifySubscriptionStatus();
+
+    window.addEventListener(
+      PLAN_UPDATED_EVENT,
+      handlePlanUpdate
+    );
+
+    window.addEventListener(
+      "storage",
+      handlePlanUpdate
+    );
+
+    window.addEventListener(
+      "focus",
+      handlePlanUpdate
+    );
+
+    return () => {
+      cancelled = true;
+
+      window.removeEventListener(
+        PLAN_UPDATED_EVENT,
+        handlePlanUpdate
+      );
+
+      window.removeEventListener(
+        "storage",
+        handlePlanUpdate
+      );
+
+      window.removeEventListener(
+        "focus",
+        handlePlanUpdate
+      );
+    };
+  }, []);
 
   function scrollToAnalyzer() {
     document
@@ -197,7 +340,9 @@ export default function Pricing() {
   }
 
   async function handleProClick() {
-    if (checkoutLoading) return;
+    if (checkoutLoading || isPro) {
+      return;
+    }
 
     setCheckoutLoading(true);
     setCheckoutError("");
@@ -215,6 +360,7 @@ export default function Pricing() {
         "/api/razorpay/create-subscription",
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -233,7 +379,8 @@ export default function Pricing() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || "Unable to start subscription checkout."
+          data.error ||
+            "Unable to start subscription checkout."
         );
       }
 
@@ -269,6 +416,7 @@ export default function Pricing() {
               "/api/razorpay/verify-subscription",
               {
                 method: "POST",
+                credentials: "include",
                 headers: {
                   "Content-Type": "application/json",
                 },
@@ -291,6 +439,17 @@ export default function Pricing() {
                   "Payment completed, but verification is pending."
               );
             }
+
+            localStorage.setItem(PLAN_KEY, "pro");
+            setIsPro(true);
+
+            window.dispatchEvent(
+              new CustomEvent(PLAN_UPDATED_EVENT, {
+                detail: {
+                  plan: "pro",
+                },
+              })
+            );
 
             window.location.assign("/success");
           } catch (verificationError) {
@@ -357,178 +516,236 @@ export default function Pricing() {
               aria-hidden="true"
             />
 
-            Simple, transparent pricing
+            {isPro
+              ? "Your Pro subscription is active"
+              : "Simple, transparent pricing"}
           </div>
 
           <h2
             id="pricing-heading"
             className="mt-5 text-4xl font-black tracking-tight text-white md:text-5xl"
           >
-            Start free. Go Pro when you&apos;re ready to win.
+            {isPro
+              ? "You’re on Pro. Keep building stronger applications."
+              : "Start free. Go Pro when you’re ready to win."}
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-zinc-400 md:text-lg">
-            Understand your resume for free. Upgrade for tailored
-            applications, premium exports and unlimited career
-            support.
+            {isPro
+              ? "Your paid plan is active with unlimited analyses, resume tailoring, cover letters and all Pro features."
+              : "Understand your resume for free. Upgrade for tailored applications, premium exports and unlimited career support."}
           </p>
         </div>
 
         <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2">
-          {plans.map((plan) => (
-            <article
-              key={plan.name}
-              className={`relative flex h-full flex-col rounded-3xl border p-7 transition duration-300 md:p-9 ${
-                plan.highlight
-                  ? "border-orange-500/60 bg-gradient-to-b from-orange-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(249,115,22,0.12)]"
-                  : "border-white/10 bg-white/[0.025] hover:border-white/20"
-              }`}
-            >
-              {plan.highlight && (
-                <div className="absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-300">
-                  <Crown
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  />
+          {plans.map((plan) => {
+            const isProPlan = plan.name === "Pro";
+            const proPlanActive = isProPlan && isPro;
 
-                  Best value
-                </div>
-              )}
-
-              <div>
-                <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                    plan.highlight
-                      ? "bg-orange-500/15 text-orange-400"
-                      : "bg-white/[0.06] text-zinc-300"
-                  }`}
-                >
-                  {plan.highlight ? (
-                    <Crown
-                      className="h-5 w-5"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <Sparkles
-                      className="h-5 w-5"
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-
-                <h3 className="mt-5 text-2xl font-black text-white">
-                  {plan.name}
-                </h3>
-
-                <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
-                  {plan.description}
-                </p>
-
-                <div className="mt-7 flex items-end gap-2">
-                  <span className="text-5xl font-black tracking-tight text-white">
-                    {plan.price}
-                  </span>
-
-                  <span className="pb-1.5 text-sm font-semibold text-zinc-500">
-                    {plan.period}
-                  </span>
-                </div>
-              </div>
-
-              <div className="my-8 h-px bg-white/[0.08]" />
-
-              <ul className="flex-1 space-y-4">
-                {plan.features.map((feature) => (
-                  <li
-                    key={feature.text}
-                    className={`flex items-start gap-3 text-sm leading-6 ${
-                      feature.included
-                        ? "text-zinc-200"
-                        : "text-zinc-600"
-                    }`}
-                  >
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                        feature.included
-                          ? plan.highlight
-                            ? "bg-orange-500/15 text-orange-400"
-                            : "bg-white/[0.07] text-zinc-300"
-                          : "bg-white/[0.03] text-zinc-600"
-                      }`}
-                    >
-                      {feature.included ? (
-                        <Check
-                          className="h-3.5 w-3.5"
-                          strokeWidth={3}
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <X
-                          className="h-3.5 w-3.5"
-                          strokeWidth={2.5}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </span>
-
-                    <span
-                      className={
-                        feature.emphasis
-                          ? "font-bold text-white"
-                          : ""
-                      }
-                    >
-                      {feature.text}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                type="button"
-                disabled={plan.highlight && checkoutLoading}
-                onClick={
-                  plan.highlight
-                    ? handleProClick
-                    : scrollToAnalyzer
-                }
-                className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
-                  plan.highlight
-                    ? "bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.16)] hover:bg-orange-400 hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]"
-                    : "border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]"
+            return (
+              <article
+                key={plan.name}
+                className={`relative flex h-full flex-col rounded-3xl border p-7 transition duration-300 md:p-9 ${
+                  proPlanActive
+                    ? "border-emerald-500/60 bg-gradient-to-b from-emerald-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(16,185,129,0.12)]"
+                    : plan.highlight
+                      ? "border-orange-500/60 bg-gradient-to-b from-orange-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(249,115,22,0.12)]"
+                      : "border-white/10 bg-white/[0.025] hover:border-white/20"
                 }`}
               >
-                {plan.highlight && checkoutLoading ? (
-                  <>
-                    <Loader2
-                      className="h-4 w-4 animate-spin"
-                      aria-hidden="true"
-                    />
+                {isProPlan && (
+                  <div
+                    className={`absolute right-5 top-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                      proPlanActive
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-orange-500/30 bg-orange-500/10 text-orange-300"
+                    }`}
+                  >
+                    {proPlanActive ? (
+                      <Check
+                        className="h-3.5 w-3.5"
+                        strokeWidth={3}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Crown
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                    )}
 
-                    Opening secure checkout...
-                  </>
-                ) : (
-                  <>
-                    {plan.buttonText}
-
-                    <ArrowRight
-                      className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </>
+                    {proPlanActive
+                      ? "Pro active"
+                      : "Best value"}
+                  </div>
                 )}
-              </button>
 
-              {plan.highlight && checkoutError && (
-                <p
-                  role="alert"
-                  className="mt-3 text-center text-sm font-medium text-red-400"
-                >
-                  {checkoutError}
-                </p>
-              )}
-            </article>
-          ))}
+                <div>
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                      proPlanActive
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : plan.highlight
+                          ? "bg-orange-500/15 text-orange-400"
+                          : "bg-white/[0.06] text-zinc-300"
+                    }`}
+                  >
+                    {plan.highlight ? (
+                      <Crown
+                        className="h-5 w-5"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Sparkles
+                        className="h-5 w-5"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+
+                  <h3 className="mt-5 text-2xl font-black text-white">
+                    {plan.name}
+                  </h3>
+
+                  <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
+                    {plan.description}
+                  </p>
+
+                  <div className="mt-7 flex items-end gap-2">
+                    <span className="text-5xl font-black tracking-tight text-white">
+                      {plan.price}
+                    </span>
+
+                    <span className="pb-1.5 text-sm font-semibold text-zinc-500">
+                      {plan.period}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="my-8 h-px bg-white/[0.08]" />
+
+                <ul className="flex-1 space-y-4">
+                  {plan.features.map((feature) => (
+                    <li
+                      key={feature.text}
+                      className={`flex items-start gap-3 text-sm leading-6 ${
+                        feature.included
+                          ? "text-zinc-200"
+                          : "text-zinc-600"
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          feature.included
+                            ? proPlanActive
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : plan.highlight
+                                ? "bg-orange-500/15 text-orange-400"
+                                : "bg-white/[0.07] text-zinc-300"
+                            : "bg-white/[0.03] text-zinc-600"
+                        }`}
+                      >
+                        {feature.included ? (
+                          <Check
+                            className="h-3.5 w-3.5"
+                            strokeWidth={3}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <X
+                            className="h-3.5 w-3.5"
+                            strokeWidth={2.5}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
+
+                      <span
+                        className={
+                          feature.emphasis
+                            ? "font-bold text-white"
+                            : ""
+                        }
+                      >
+                        {feature.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {proPlanActive ? (
+                  <div className="mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-sm font-black text-emerald-300">
+                    <Check
+                      className="h-4 w-4"
+                      strokeWidth={3}
+                      aria-hidden="true"
+                    />
+
+                    Pro plan active
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={
+                      (plan.highlight && checkoutLoading) ||
+                      planLoading
+                    }
+                    onClick={
+                      plan.highlight
+                        ? handleProClick
+                        : scrollToAnalyzer
+                    }
+                    className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      plan.highlight
+                        ? "bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.16)] hover:bg-orange-400 hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]"
+                        : "border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {plan.highlight &&
+                    checkoutLoading ? (
+                      <>
+                        <Loader2
+                          className="h-4 w-4 animate-spin"
+                          aria-hidden="true"
+                        />
+
+                        Opening secure checkout...
+                      </>
+                    ) : planLoading ? (
+                      <>
+                        <Loader2
+                          className="h-4 w-4 animate-spin"
+                          aria-hidden="true"
+                        />
+
+                        Checking plan...
+                      </>
+                    ) : (
+                      <>
+                        {plan.buttonText}
+
+                        <ArrowRight
+                          className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                          aria-hidden="true"
+                        />
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {isProPlan &&
+                  checkoutError &&
+                  !isPro && (
+                    <p
+                      role="alert"
+                      className="mt-3 text-center text-sm font-medium text-red-400"
+                    >
+                      {checkoutError}
+                    </p>
+                  )}
+              </article>
+            );
+          })}
         </div>
 
         <div className="mx-auto mt-8 grid max-w-4xl gap-3 text-sm text-zinc-400 sm:grid-cols-4">
@@ -569,11 +786,11 @@ export default function Pricing() {
           </div>
         </div>
 
-       <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
-  Pro renews automatically at ₹199 per month. Cancel anytime.
-  Secure recurring payments are processed by Razorpay through
-  UPI AutoPay, QR code, or an eligible card.
-</p>
+        <p className="mt-5 text-center text-xs font-medium leading-5 text-zinc-500">
+          {isPro
+            ? "Your Pro subscription is active. It renews automatically at ₹199 per month unless cancelled."
+            : "Pro renews automatically at ₹199 per month. Cancel anytime. Secure recurring payments are processed by Razorpay through UPI AutoPay, QR code, or an eligible card."}
+        </p>
       </div>
     </section>
   );
