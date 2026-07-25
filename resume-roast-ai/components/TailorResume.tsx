@@ -1020,7 +1020,7 @@ function ProcessingCard() {
               </p>
 
               <p className="mt-1 text-xs leading-5 text-zinc-600">
-                Resume Roast is aligning your resume with the selected role.
+                OffernHire is aligning your resume with the selected role.
               </p>
             </div>
           </div>

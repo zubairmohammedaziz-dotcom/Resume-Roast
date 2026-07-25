@@ -1,60 +1,72 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata = {
-  title: "FAQ | Resume Roast AI",
-  description: "Frequently asked questions about Resume Roast AI.",
+export const metadata: Metadata = {
+  title: "Help Center & FAQ | OffernHire",
+  description:
+    "Frequently asked questions about OffernHire resume analysis, job matching, subscriptions and privacy.",
 };
 
 const faqs = [
   {
-    question: "What does Resume Roast AI do?",
+    question: "What does OffernHire do?",
     answer:
-      "Resume Roast AI analyzes your resume, scores it for ATS and recruiter readiness, identifies weaknesses, suggests improvements, matches you with relevant jobs and helps tailor your resume for specific roles.",
+      "OffernHire analyzes your resume, estimates ATS and recruiter readiness, identifies improvement areas, suggests stronger content, recommends relevant opportunities and helps tailor your application for specific roles.",
   },
   {
-    question: "Is Resume Roast AI free?",
+    question: "Is OffernHire free?",
     answer:
-      "Yes. The Free plan includes limited resume analysis and basic feedback. Pro unlocks resume tailoring, cover letters, premium PDF export, additional job matches, history and other advanced features.",
+      "Yes. OffernHire includes a Free plan with limited usage. The Pro plan unlocks additional resume analyses, job matches, resume tailoring, cover letters, interview preparation and other premium features subject to the plan shown on the pricing page.",
   },
   {
-    question: "Does Resume Roast AI guarantee interviews or job offers?",
+    question: "Does OffernHire guarantee interviews or job offers?",
     answer:
-      "No. The platform helps improve your application quality, but hiring outcomes depend on factors such as your experience, job market conditions, employer requirements and interview performance.",
+      "No. OffernHire helps improve application quality, but hiring outcomes depend on your qualifications, experience, job-market conditions, employer requirements, competition and interview performance.",
   },
   {
     question: "Is my resume data secure?",
     answer:
-      "We use trusted service providers for hosting, authentication, AI processing, payments and storage. You should avoid uploading unnecessary highly sensitive information such as government identification numbers or banking details.",
+      "OffernHire uses trusted providers for hosting, authentication, AI processing, database services and payments. You should avoid uploading unnecessary highly sensitive information such as passwords, banking details or government identification numbers.",
   },
   {
-    question: "Will Resume Roast AI invent experience or achievements?",
+    question: "Will OffernHire invent experience or achievements?",
     answer:
-      "The product is designed to work from the information you provide and improve positioning without fabricating facts. You are still responsible for reviewing all output before using it.",
+      "OffernHire is designed to improve the presentation of information you provide without intentionally fabricating facts. You remain responsible for reviewing and verifying all generated content before using it.",
   },
   {
-    question: "Can I cancel Pro anytime?",
+    question: "Where is my resume history stored?",
     answer:
-      "Yes. You may cancel your subscription at any time. Access may continue until the end of the current paid billing period, and future renewals will stop.",
+      "Some resume reports and saved opportunities may currently be stored in your browser. Clearing browser data or using another browser or device may remove or prevent access to locally stored history.",
+  },
+  {
+    question: "Can I cancel Pro?",
+    answer:
+      "Yes. You may request cancellation of your subscription to prevent future renewal charges. Where applicable, access may continue until the end of the current paid billing period.",
   },
   {
     question: "Can I get a refund?",
     answer:
-      "Payments are generally non-refundable once access begins. Refunds may be considered for duplicate charges, incorrect billing or verified technical issues. Please review the Refund Policy for details.",
+      "Payments are generally non-refundable after paid access begins. Billing reviews may be considered for duplicate charges, incorrect billing or verified technical access issues. Please review the Refund Policy for complete details.",
   },
   {
     question: "How are payments processed?",
     answer:
-      "Payments are processed securely through Stripe. Resume Roast AI does not directly store your complete card details.",
+      "Payments are processed securely through Razorpay and its supported payment partners. OffernHire does not directly store your complete card, bank-account or UPI credentials.",
   },
   {
-    question: "Can I use the tailored resume without checking it?",
+    question: "Can I submit generated content without checking it?",
     answer:
-      "You should always review and verify every tailored resume, cover letter and recommendation before submitting it to an employer.",
+      "No. You should always review, edit and verify every tailored resume, cover letter, interview answer and recommendation before submitting or using it professionally.",
+  },
+  {
+    question: "Are the job listings controlled by OffernHire?",
+    answer:
+      "No. Job information and application links may come from third-party providers. Availability, employer details, application requirements and hiring decisions are controlled by the relevant third party or employer.",
   },
   {
     question: "How can I contact support?",
     answer:
-      "You can contact us at support@resumeroast.ai for account, billing, privacy or technical support.",
+      "You can contact the OffernHire Team at team@offernhire.com for account, subscription, privacy, billing or technical-support questions.",
   },
 ];
 
@@ -64,9 +76,9 @@ export default function FAQPage() {
       <div className="mx-auto max-w-4xl">
         <Link
           href="/"
-          className="text-sm font-semibold text-orange-400 hover:text-orange-300"
+          className="text-sm font-semibold text-orange-400 transition hover:text-orange-300"
         >
-          ← Back to Resume Roast AI
+          ← Back to OffernHire
         </Link>
 
         <div className="mt-8">
@@ -79,8 +91,9 @@ export default function FAQPage() {
           </h1>
 
           <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
-            Everything you need to know before analyzing, tailoring or
-            upgrading your resume.
+            Learn how OffernHire analyzes resumes, recommends
+            opportunities, processes subscriptions and protects your
+            information.
           </p>
         </div>
 
@@ -88,23 +101,41 @@ export default function FAQPage() {
           {faqs.map((faq) => (
             <details
               key={faq.question}
-              className="group rounded-2xl border border-white/10 bg-white/[0.025] px-6 py-5 open:border-orange-500/30 open:bg-orange-500/[0.04]"
+              className="group rounded-2xl border border-white/10 bg-white/[0.025] px-6 py-5 transition open:border-orange-500/30 open:bg-orange-500/[0.04]"
             >
-              <summary className="cursor-pointer list-none pr-8 text-base font-bold text-white">
-                {faq.question}
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-bold text-white">
+                <span>{faq.question}</span>
+
+                <span
+                  aria-hidden="true"
+                  className="text-xl font-normal text-orange-400 transition-transform group-open:rotate-45"
+                >
+                  +
+                </span>
               </summary>
 
-              <p className="mt-4 leading-7 text-zinc-400">{faq.answer}</p>
+              <p className="mt-4 border-t border-white/[0.07] pt-4 leading-7 text-zinc-400">
+                {faq.answer}
+              </p>
             </details>
           ))}
         </div>
 
         <div className="mt-12 rounded-2xl border border-orange-500/20 bg-orange-500/[0.06] p-6">
-          <h2 className="text-lg font-bold text-white">Still need help?</h2>
+          <h2 className="text-lg font-bold text-white">
+            Still need help?
+          </h2>
 
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Contact us at support@resumeroast.ai and include your account email
-            and a clear description of the issue.
+            Contact{" "}
+            <a
+              href="mailto:team@offernhire.com"
+              className="font-semibold text-orange-400 transition hover:text-orange-300"
+            >
+              team@offernhire.com
+            </a>{" "}
+            and include your account email and a clear description of
+            the issue.
           </p>
         </div>
       </div>

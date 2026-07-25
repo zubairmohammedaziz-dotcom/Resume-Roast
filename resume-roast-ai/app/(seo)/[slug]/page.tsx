@@ -77,7 +77,7 @@ const pages: Record<string, SEOPage> = {
   },
 
   "resume-roast": {
-    title: "Free AI Resume Roast",
+    title: "Free AI Resume Analysis",
     description:
       "Get direct and honest feedback about the mistakes weakening your resume.",
     heading: "Let AI Roast Your Resume Before Recruiters Do",

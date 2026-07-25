@@ -31,7 +31,7 @@ export default function ReportPage() {
       </a>
 
       <h1 className="text-4xl font-bold text-orange-500 mt-6">
-        Resume Roast Report
+        OffernHire Resume Report
       </h1>
 
       <p className="text-gray-400 mb-4">{item.resumeName}</p>

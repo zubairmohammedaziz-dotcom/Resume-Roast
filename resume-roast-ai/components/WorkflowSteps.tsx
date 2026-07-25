@@ -2,13 +2,22 @@ type Props = {
   activeStep?: number;
 };
 
-const steps = ["Upload", "Analyze", "Jobs", "Tailor", "Preview", "Interview"];
+const steps = [
+  "Upload",
+  "Analyze",
+  "Jobs",
+  "Tailor",
+  "Preview",
+  "Interview",
+];
 
-export default function WorkflowSteps({ activeStep = 4 }: Props) {
+export default function WorkflowSteps({
+  activeStep = 4,
+}: Props) {
   return (
     <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
       <p className="text-xs font-bold uppercase tracking-[0.3em] text-orange-400">
-        Resume Roast Workflow
+        OffernHire Workflow
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-6">
@@ -24,8 +33,8 @@ export default function WorkflowSteps({ activeStep = 4 }: Props) {
                 isActive
                   ? "border-orange-500 bg-orange-500/10"
                   : isDone
-                  ? "border-green-500/40 bg-green-500/10"
-                  : "border-zinc-800 bg-black"
+                    ? "border-green-500/40 bg-green-500/10"
+                    : "border-zinc-800 bg-black"
               }`}
             >
               <div
@@ -33,8 +42,8 @@ export default function WorkflowSteps({ activeStep = 4 }: Props) {
                   isActive
                     ? "bg-orange-500 text-black"
                     : isDone
-                    ? "bg-green-500 text-black"
-                    : "bg-zinc-800 text-zinc-400"
+                      ? "bg-green-500 text-black"
+                      : "bg-zinc-800 text-zinc-400"
                 }`}
               >
                 {isDone ? "✓" : stepNumber}
@@ -45,8 +54,8 @@ export default function WorkflowSteps({ activeStep = 4 }: Props) {
                   isActive
                     ? "text-orange-300"
                     : isDone
-                    ? "text-green-300"
-                    : "text-zinc-500"
+                      ? "text-green-300"
+                      : "text-zinc-500"
                 }`}
               >
                 {step}

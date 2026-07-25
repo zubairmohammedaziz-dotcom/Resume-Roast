@@ -61,7 +61,7 @@ export default function AIResumeCheckerPage() {
               "Identify important skills and keywords missing from your resume.",
           },
           {
-            title: "Resume Roast",
+            title: "AI Resume Analysis",
             description:
               "Get direct and honest feedback about what is hurting your chances.",
           },

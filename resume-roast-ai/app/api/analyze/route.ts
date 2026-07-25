@@ -690,7 +690,7 @@ const analysisSchema = {
 } as const;
 
 const SYSTEM_INSTRUCTIONS = `
-You are Resume Roast AI, a senior recruiter, ATS analyst and resume
+You are OffernHire AI, a senior recruiter, ATS analyst and resume
 intelligence specialist.
 
 Your primary task is to extract a deep, accurate candidate profile from the

@@ -96,15 +96,16 @@ export default function FeatureGrid() {
               id="features-title"
               className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.02] tracking-[-0.045em] text-white md:text-5xl lg:text-6xl"
             >
-              One intelligent workflow for your entire application journey.
+              One intelligent workflow for your entire application
+              journey.
             </h2>
           </div>
 
           <div className="lg:justify-self-end">
             <p className="max-w-2xl text-base leading-8 text-zinc-400">
-              Resume Roast connects resume analysis, career discovery,
-              application tailoring and interview preparation so every step
-              improves the next.
+              OffernHire connects resume analysis, career discovery,
+              application tailoring and interview preparation so every
+              step improves the next.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -190,9 +191,10 @@ export default function FeatureGrid() {
                 </p>
 
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                  Understand your profile, identify stronger opportunities,
-                  tailor your application and prepare for interviews without
-                  switching between disconnected tools.
+                  Understand your profile, identify stronger
+                  opportunities, tailor your application and prepare
+                  for interviews without switching between
+                  disconnected tools.
                 </p>
               </div>
             </div>
