@@ -409,6 +409,7 @@ export default function Home() {
           />
 
           <Pricing />
+          <OurStory />
           <Footer />
         </div>
       </main>
