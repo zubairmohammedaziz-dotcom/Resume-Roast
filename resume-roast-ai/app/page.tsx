@@ -9,6 +9,7 @@ import Footer from "../components/Footer";
 import JobMatches from "../components/JobMatches";
 import TailorResume from "../components/TailorResume";
 import type { JobMatch, Report } from "../types/report";
+import WhyOffernHire from "@/components/WhyOffernHire";
 import {
   canAnalyzeResume,
   limitJobMatches,
@@ -378,8 +379,9 @@ export default function Home() {
         <Navbar />
 
         <div className="mx-auto max-w-[1480px] px-4 pb-16 pt-5 sm:px-6 lg:px-8">
-          <Hero />
-          <FeatureGrid />
+         <Hero />
+<WhyOffernHire />
+<FeatureGrid />
 
           <UploadWorkspace
             selectedFile={selectedFile}
