@@ -10,6 +10,7 @@ import JobMatches from "../components/JobMatches";
 import TailorResume from "../components/TailorResume";
 import type { JobMatch, Report } from "../types/report";
 import WhyOffernHire from "@/components/WhyOffernHire";
+import OurStory from "../components/OurStory";
 import {
   canAnalyzeResume,
   limitJobMatches,
