@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Target,
+  UserCheck,
   X,
 } from "lucide-react";
 
@@ -76,7 +78,7 @@ const plans: Plan[] = [
     price: "₹0",
     period: "forever",
     description:
-      "Explore the core experience and understand how competitive your resume is.",
+      "Get a clear snapshot of your resume strength before you start applying.",
     features: [
       {
         text: "1 complete resume analysis",
@@ -120,7 +122,7 @@ const plans: Plan[] = [
     price: "₹199",
     period: "per month",
     description:
-      "Build stronger applications, tailor every resume and apply with an unfair advantage.",
+      "Turn every application into a stronger, role-specific opportunity—with unlimited AI career support.",
     features: [
       {
         text: "Unlimited resume analyses",
@@ -156,7 +158,7 @@ const plans: Plan[] = [
         included: true,
       },
     ],
-    buttonText: "Upgrade to Pro",
+    buttonText: "Unlock My Career Advantage",
     highlight: true,
   },
 ];
@@ -527,17 +529,48 @@ export default function Pricing() {
           >
             {isPro
               ? "You’re on Pro. Keep building stronger applications."
-              : "Start free. Go Pro when you’re ready to win."}
+              : "Stop applying blindly. Apply where you’re most likely to get hired."}
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-zinc-400 md:text-lg">
             {isPro
               ? "Your paid plan is active with unlimited analyses, resume tailoring, cover letters and all Pro features."
-              : "Understand your resume for free. Upgrade for tailored applications, premium exports and unlimited career support."}
+              : "Start free to understand your profile. Upgrade to Pro for unlimited career intelligence, tailored applications and complete interview preparation."}
           </p>
         </div>
 
-        <div className="mx-auto mt-14 grid max-w-5xl gap-6 lg:grid-cols-2">
+        {!isPro && (
+          <div className="mx-auto mt-8 grid max-w-4xl gap-3 sm:grid-cols-3">
+            <div className="flex min-h-[118px] flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-5 text-center transition duration-300 hover:border-white/[0.14] hover:bg-white/[0.045]">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">
+                Simple value
+              </p>
+              <p className="mt-3 text-base font-black leading-6 text-white">
+                Less than ₹7 per day
+              </p>
+            </div>
+
+            <div className="flex min-h-[118px] flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-5 text-center transition duration-300 hover:border-white/[0.14] hover:bg-white/[0.045]">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">
+                Built for outcomes
+              </p>
+              <p className="mt-3 text-base font-black leading-6 text-white">
+                Stronger applications, not more applications
+              </p>
+            </div>
+
+            <div className="flex min-h-[118px] flex-col items-center justify-center rounded-2xl border border-orange-500/25 bg-orange-500/[0.08] px-6 py-5 text-center shadow-[0_0_30px_rgba(249,115,22,0.06)] transition duration-300 hover:border-orange-500/40 hover:bg-orange-500/[0.11]">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-300">
+                Career impact
+              </p>
+              <p className="mt-3 text-base font-black leading-6 text-white">
+                One interview can change your career
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="mx-auto mt-10 grid max-w-6xl gap-6 lg:grid-cols-2">
           {plans.map((plan) => {
             const isProPlan = plan.name === "Pro";
             const proPlanActive = isProPlan && isPro;
@@ -547,9 +580,9 @@ export default function Pricing() {
                 key={plan.name}
                 className={`relative flex h-full flex-col rounded-3xl border p-7 transition duration-300 md:p-9 ${
                   proPlanActive
-                    ? "border-emerald-500/60 bg-gradient-to-b from-emerald-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(16,185,129,0.12)]"
+                    ? "border-emerald-500/60 bg-gradient-to-b from-emerald-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_65px_rgba(16,185,129,0.16)] lg:-translate-y-2 lg:pb-11"
                     : plan.highlight
-                      ? "border-orange-500/60 bg-gradient-to-b from-orange-500/[0.12] via-zinc-950 to-zinc-950 shadow-[0_0_55px_rgba(249,115,22,0.12)]"
+                      ? "border-orange-500/70 bg-gradient-to-b from-orange-500/[0.15] via-zinc-950 to-zinc-950 shadow-[0_0_75px_rgba(249,115,22,0.18)] lg:-translate-y-2 lg:pb-11"
                       : "border-white/10 bg-white/[0.025] hover:border-white/20"
                 }`}
               >
@@ -619,6 +652,58 @@ export default function Pricing() {
                     <span className="pb-1.5 text-sm font-semibold text-zinc-500">
                       {plan.period}
                     </span>
+                  </div>
+
+                  {isProPlan && !isPro && (
+                    <p className="mt-2 text-sm font-bold text-orange-300">
+                      Less than ₹7 per day
+                    </p>
+                  )}
+
+                  <div
+                    className={`mt-6 rounded-2xl border px-4 py-4 ${
+                      isProPlan
+                        ? "border-orange-500/20 bg-orange-500/[0.06]"
+                        : "border-white/[0.07] bg-white/[0.025]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          isProPlan
+                            ? "bg-orange-500/15 text-orange-400"
+                            : "bg-white/[0.06] text-zinc-300"
+                        }`}
+                      >
+                        {isProPlan ? (
+                          <Target
+                            className="h-4.5 w-4.5"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <UserCheck
+                            className="h-4.5 w-4.5"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
+
+                      <div>
+                        <p
+                          className={`text-xs font-black uppercase tracking-[0.18em] ${
+                            isProPlan ? "text-orange-300" : "text-zinc-500"
+                          }`}
+                        >
+                          Best for
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold leading-6 text-zinc-200">
+                          {isProPlan
+                            ? "Active job seekers who apply every week and want stronger interview chances."
+                            : "Job seekers who want a quick resume check before deciding what to improve."}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -695,10 +780,10 @@ export default function Pricing() {
                         ? handleProClick
                         : scrollToAnalyzer
                     }
-                    className={`group mt-9 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`group mt-9 inline-flex w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950 disabled:cursor-not-allowed disabled:opacity-60 ${
                       plan.highlight
-                        ? "bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.16)] hover:bg-orange-400 hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]"
-                        : "border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]"
+                        ? "h-14 bg-orange-500 text-black shadow-[0_0_30px_rgba(249,115,22,0.16)] hover:bg-orange-400 hover:shadow-[0_0_35px_rgba(249,115,22,0.25)]"
+                        : "h-12 border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]"
                     }`}
                   >
                     {plan.highlight &&
@@ -747,6 +832,44 @@ export default function Pricing() {
             );
           })}
         </div>
+
+        {!isPro && (
+          <div className="mx-auto mt-8 max-w-5xl rounded-3xl border border-orange-500/20 bg-gradient-to-r from-orange-500/[0.08] via-white/[0.025] to-orange-500/[0.05] p-6 md:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-xl">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-300">
+                  Your Career Success Workflow
+                </p>
+                <h3 className="mt-3 text-2xl font-black tracking-tight text-white md:text-3xl">
+                  From resume review to interview preparation—everything works together.
+                </h3>
+              </div>
+
+              <div className="grid gap-3 text-sm font-semibold text-zinc-200 sm:grid-cols-2 lg:min-w-[420px]">
+                {[
+                  "Analyze without limits",
+                  "Find stronger job matches",
+                  "Tailor every application",
+                  "Generate cover letters",
+                  "Prepare for interviews",
+                  "Export ATS-ready PDFs",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 px-3 py-3"
+                  >
+                    <Check
+                      className="h-4 w-4 shrink-0 text-orange-400"
+                      strokeWidth={3}
+                      aria-hidden="true"
+                    />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mx-auto mt-8 grid max-w-4xl gap-3 text-sm text-zinc-400 sm:grid-cols-4">
           <div className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
