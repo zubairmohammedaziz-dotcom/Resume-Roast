@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import Providers from "./Providers";
@@ -9,6 +10,8 @@ import {
 } from "./schema";
 
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = "G-1NY8X9F191";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -78,6 +81,33 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+
+        <Script
+          id="offernhire-google-analytics"
+          strategy="afterInteractive"
+        >
+          {`
+            window.dataLayer = window.dataLayer || [];
+
+            function gtag() {
+              window.dataLayer.push(arguments);
+            }
+
+            window.gtag = gtag;
+
+            gtag("js", new Date());
+
+            gtag("config", "${GA_MEASUREMENT_ID}", {
+              send_page_view: true,
+              anonymize_ip: true
+            });
+          `}
+        </Script>
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
