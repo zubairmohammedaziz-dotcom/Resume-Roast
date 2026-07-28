@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -11,12 +12,12 @@ import {
   CircleDollarSign,
   CreditCard,
   FileSearch,
-  Gauge,
   Globe2,
   LayoutDashboard,
   LockKeyhole,
   LogIn,
   LogOut,
+  RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
@@ -28,43 +29,47 @@ import {
 
 type Status = "connected" | "not-connected" | "coming-soon";
 
-const integrations = [
-  {
-    name: "Google Analytics 4",
-    description: "Visitors, sessions, sources, devices and landing pages.",
-    status: "not-connected" as Status,
-    icon: BarChart3,
-  },
-  {
-    name: "Supabase",
-    description: "Users, analyses, tailoring and product activity.",
-    status: "not-connected" as Status,
-    icon: Activity,
-  },
-  {
-    name: "Razorpay",
-    description: "Subscriptions, MRR, refunds and payment failures.",
-    status: "not-connected" as Status,
-    icon: CreditCard,
-  },
-  {
-    name: "Search Console",
-    description: "Clicks, impressions, queries and organic landing pages.",
-    status: "coming-soon" as Status,
-    icon: Search,
-  },
-];
+type AnalyticsResponse = {
+  success: true;
+  generatedAt: string;
+  overview: {
+    visitorsToday: number;
+    activeUsersNow: number;
+    newUsersToday: number;
+    sessionsToday: number;
+    pageViewsToday: number;
+  };
+  product: {
+    resumeUploads: number;
+    analysisStarted: number;
+    analysisCompleted: number;
+    analysisFailures: number;
+    tailorStarted: number;
+    pricingViews: number;
+    successfulAnalysisRate: number;
+  };
+  funnel: {
+    visitors: number;
+    resumeUploads: number;
+    analysesCompleted: number;
+    tailoredResumes: number;
+    checkoutStarts: number;
+    paidSubscriptions: number;
+    visitorToUploadRate: number;
+    visitorToProRate: number;
+  };
+  topPages: Array<{ path: string; views: number; users: number }>;
+  trafficSources: Array<{ source: string; sessions: number; users: number }>;
+  events: Record<string, number>;
+};
 
-const funnel = [
-  "Website visitors",
-  "Resume uploads",
-  "Analyses completed",
-  "Tailored resumes",
-  "Checkout starts",
-  "Paid subscriptions",
-];
+type DashboardState =
+  | { status: "idle"; data: null; error: null }
+  | { status: "loading"; data: null; error: null }
+  | { status: "success"; data: AnalyticsResponse; error: null }
+  | { status: "error"; data: null; error: string };
 
-const events = [
+const trackedEvents = [
   "resume_uploaded",
   "analysis_started",
   "analysis_completed",
@@ -76,21 +81,69 @@ const events = [
 ];
 
 export default function FounderDashboardPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const [dashboard, setDashboard] = useState<DashboardState>({
+    status: "idle",
+    data: null,
+    error: null,
+  });
 
-  const founderEmail = (
-    process.env.NEXT_PUBLIC_FOUNDER_EMAIL || ""
-  ).trim().toLowerCase();
+  const founderEmail = (process.env.NEXT_PUBLIC_FOUNDER_EMAIL || "")
+    .trim()
+    .toLowerCase();
+  const signedInEmail = (session?.user?.email || "").trim().toLowerCase();
+  const hasFounderAccess =
+    sessionStatus === "authenticated" &&
+    Boolean(founderEmail) &&
+    signedInEmail === founderEmail;
 
-  const signedInEmail = (
-    session?.user?.email || ""
-  ).trim().toLowerCase();
+  const loadAnalytics = useCallback(async () => {
+    setDashboard({ status: "loading", data: null, error: null });
 
-  if (status === "loading") {
+    try {
+      const response = await fetch("/api/admin/analytics", {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+
+      const payload = (await response.json()) as
+        | AnalyticsResponse
+        | { success: false; error?: string };
+
+      if (!response.ok || !payload.success) {
+        setDashboard({
+          status: "error",
+          data: null,
+          error:
+            "error" in payload && payload.error
+              ? payload.error
+              : "Unable to load analytics.",
+        });
+        return;
+      }
+
+      setDashboard({ status: "success", data: payload, error: null });
+    } catch (error) {
+      setDashboard({
+        status: "error",
+        data: null,
+        error:
+          error instanceof Error ? error.message : "Unable to load analytics.",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasFounderAccess) void loadAnalytics();
+  }, [hasFounderAccess, loadAnalytics]);
+
+  if (sessionStatus === "loading") {
     return <AccessScreen title="Checking founder access..." loading />;
   }
 
-  if (status === "unauthenticated") {
+  if (sessionStatus === "unauthenticated") {
     return (
       <AccessScreen
         title="Sign in to continue"
@@ -113,12 +166,12 @@ export default function FounderDashboardPage() {
     return (
       <AccessScreen
         title="Founder email is not configured"
-        description="Add NEXT_PUBLIC_FOUNDER_EMAIL to your local environment and Vercel before opening this page."
+        description="Add NEXT_PUBLIC_FOUNDER_EMAIL to Vercel and redeploy."
       />
     );
   }
 
-  if (signedInEmail !== founderEmail) {
+  if (!hasFounderAccess) {
     return (
       <AccessScreen
         title="Access restricted"
@@ -136,6 +189,66 @@ export default function FounderDashboardPage() {
       />
     );
   }
+
+  const analytics = dashboard.status === "success" ? dashboard.data : null;
+  const ga4Connected = Boolean(analytics);
+
+  const generatedAt = useMemo(() => {
+    if (!analytics?.generatedAt) return null;
+    const value = new Date(analytics.generatedAt);
+    if (Number.isNaN(value.getTime())) return null;
+
+    return new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    }).format(value);
+  }, [analytics?.generatedAt]);
+
+  const funnel = analytics
+    ? [
+        ["Website visitors", analytics.funnel.visitors],
+        ["Resume uploads", analytics.funnel.resumeUploads],
+        ["Analyses completed", analytics.funnel.analysesCompleted],
+        ["Tailored resumes", analytics.funnel.tailoredResumes],
+        ["Checkout starts", analytics.funnel.checkoutStarts],
+        ["Paid subscriptions", analytics.funnel.paidSubscriptions],
+      ]
+    : [
+        ["Website visitors", null],
+        ["Resume uploads", null],
+        ["Analyses completed", null],
+        ["Tailored resumes", null],
+        ["Checkout starts", null],
+        ["Paid subscriptions", null],
+      ];
+
+  const integrations = [
+    {
+      name: "Google Analytics 4",
+      description: "Visitors, sessions, sources, product events and top pages.",
+      status: ga4Connected ? ("connected" as Status) : ("not-connected" as Status),
+      icon: BarChart3,
+    },
+    {
+      name: "Supabase",
+      description: "Persistent users, saved reports and product history.",
+      status: "not-connected" as Status,
+      icon: Activity,
+    },
+    {
+      name: "Razorpay",
+      description: "Subscriptions, MRR, refunds and payment failures.",
+      status: "not-connected" as Status,
+      icon: CreditCard,
+    },
+    {
+      name: "Search Console",
+      description: "Organic clicks, impressions, queries and SEO pages.",
+      status: "coming-soon" as Status,
+      icon: Search,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -168,6 +281,20 @@ export default function FounderDashboardPage() {
 
             <button
               type="button"
+              onClick={() => void loadAnalytics()}
+              disabled={dashboard.status === "loading"}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm font-semibold text-zinc-400 transition hover:text-white disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  dashboard.status === "loading" ? "animate-spin" : ""
+                }`}
+              />
+              Refresh
+            </button>
+
+            <button
+              type="button"
               onClick={() => signOut({ callbackUrl: "/" })}
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm font-semibold text-zinc-400 transition hover:text-white"
             >
@@ -182,45 +309,110 @@ export default function FounderDashboardPage() {
         <section className="relative overflow-hidden rounded-[2rem] border border-white/[0.09] bg-[#0b0b0b] px-5 py-8 shadow-[0_30px_100px_rgba(0,0,0,0.45)] sm:px-8 lg:px-10 lg:py-10">
           <div className="pointer-events-none absolute right-[-120px] top-[-140px] h-[360px] w-[360px] rounded-full bg-orange-500/[0.11] blur-[120px]" />
 
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.07] px-3 py-1.5">
-              <LayoutDashboard className="h-3.5 w-3.5 text-orange-400" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">
-                OffernHire Founder Dashboard
-              </span>
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/[0.07] px-3 py-1.5">
+                <LayoutDashboard className="h-3.5 w-3.5 text-orange-400" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">
+                  OffernHire Founder Dashboard
+                </span>
+              </div>
+
+              <h1 className="mt-5 max-w-4xl text-3xl font-black tracking-[-0.04em] sm:text-4xl lg:text-5xl">
+                One view of traffic, product usage, revenue and growth.
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-500 sm:text-base">
+                GA4 data is now live. Razorpay and Supabase will complete the
+                revenue and user-history layers.
+              </p>
             </div>
 
-            <h1 className="mt-5 max-w-4xl text-3xl font-black tracking-[-0.04em] sm:text-4xl lg:text-5xl">
-              One view of traffic, product usage, revenue and growth.
-            </h1>
-
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-500 sm:text-base">
-              This dashboard never invents numbers. Until a data source is
-              securely connected, the related metric remains marked as not connected.
-            </p>
+            <div className="flex flex-col items-start gap-2 lg:items-end">
+              <StatusBadge
+                status={ga4Connected ? "connected" : "not-connected"}
+              />
+              {generatedAt && (
+                <p className="text-xs text-zinc-700">
+                  Last updated {generatedAt}
+                </p>
+              )}
+            </div>
           </div>
         </section>
+
+        {dashboard.status === "error" && (
+          <section className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/[0.05] p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-red-400" />
+              <div>
+                <h2 className="text-sm font-black text-red-200">
+                  Analytics could not be loaded
+                </h2>
+                <p className="mt-2 text-sm text-red-200/60">
+                  {dashboard.error}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Metric
             label="Visitors today"
-            description="Connect GA4 to show unique visitors."
+            value={formatValue(analytics?.overview.visitorsToday, dashboard.status)}
+            description={
+              analytics
+                ? `${analytics.overview.newUsersToday} new users across ${analytics.overview.sessionsToday} sessions.`
+                : "Loading visitors from GA4."
+            }
             icon={<Users className="h-5 w-5" />}
+            status={ga4Connected ? "connected" : "not-connected"}
           />
+
+          <Metric
+            label="Active users now"
+            value={formatValue(analytics?.overview.activeUsersNow, dashboard.status)}
+            description={
+              analytics
+                ? `${analytics.overview.pageViewsToday} page views recorded today.`
+                : "Loading realtime activity from GA4."
+            }
+            icon={<Activity className="h-5 w-5" />}
+            status={ga4Connected ? "connected" : "not-connected"}
+          />
+
           <Metric
             label="Resume analyses"
-            description="Connect Supabase product events."
+            value={formatValue(
+              analytics?.product.analysisCompleted,
+              dashboard.status
+            )}
+            description={
+              analytics
+                ? `${analytics.product.analysisStarted} started and ${analytics.product.analysisFailures} failed.`
+                : "Loading product events from GA4."
+            }
             icon={<FileSearch className="h-5 w-5" />}
+            status={ga4Connected ? "connected" : "not-connected"}
           />
-          <Metric
-            label="Monthly recurring revenue"
-            description="Connect Razorpay subscriptions."
-            icon={<CircleDollarSign className="h-5 w-5" />}
-          />
+
           <Metric
             label="Visitor to Pro conversion"
-            description="Calculated after traffic and payment data connect."
+            value={
+              analytics
+                ? `${analytics.funnel.visitorToProRate}%`
+                : dashboard.status === "loading"
+                  ? "Loading"
+                  : "Not connected"
+            }
+            description="Razorpay will complete paid conversion and revenue reporting."
             icon={<TrendingUp className="h-5 w-5" />}
+            status={
+              analytics && analytics.funnel.paidSubscriptions > 0
+                ? "connected"
+                : "not-connected"
+            }
           />
         </section>
 
@@ -228,20 +420,28 @@ export default function FounderDashboardPage() {
           <Panel
             eyebrow="Conversion funnel"
             title="See exactly where users drop off"
-            description="The funnel will populate from product and payment events."
+            description="Live GA4 events mapped across the OffernHire journey."
           >
             <div className="mt-6 space-y-3">
-              {funnel.map((step, index) => (
-                <div key={step}>
+              {funnel.map(([label, value], index) => (
+                <div key={String(label)}>
                   <div className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-black/25 p-4">
                     <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-orange-500/15 bg-orange-500/[0.06] text-xs font-black text-orange-300">
                       {index + 1}
                     </span>
                     <div className="flex-1">
-                      <p className="text-sm font-bold">{step}</p>
-                      <p className="mt-1 text-xs text-zinc-600">Not connected</p>
+                      <p className="text-sm font-bold">{label}</p>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        {typeof value === "number"
+                          ? `${value} recorded today`
+                          : dashboard.status === "loading"
+                            ? "Loading"
+                            : "Not connected"}
+                      </p>
                     </div>
-                    <StatusBadge status="not-connected" />
+                    <p className="text-lg font-black text-white">
+                      {typeof value === "number" ? value : "—"}
+                    </p>
                   </div>
                   {index < funnel.length - 1 && (
                     <div className="ml-[33px] h-3 w-px bg-white/[0.08]" />
@@ -254,13 +454,37 @@ export default function FounderDashboardPage() {
           <Panel
             eyebrow="Product health"
             title="Operational reliability"
-            description="These metrics will come from your application event store."
+            description="Live product-event quality for today."
           >
             <div className="mt-6 space-y-3">
-              <HealthRow label="Failed analyses" icon={<AlertTriangle className="h-4 w-4" />} />
-              <HealthRow label="Average AI response time" icon={<Gauge className="h-4 w-4" />} />
-              <HealthRow label="Payment failures" icon={<CreditCard className="h-4 w-4" />} />
-              <HealthRow label="Successful analysis rate" icon={<CheckCircle2 className="h-4 w-4" />} />
+              <HealthRow
+                label="Failed analyses"
+                value={analytics?.product.analysisFailures}
+                suffix=""
+                connected={ga4Connected}
+                icon={<AlertTriangle className="h-4 w-4" />}
+              />
+              <HealthRow
+                label="Successful analysis rate"
+                value={analytics?.product.successfulAnalysisRate}
+                suffix="%"
+                connected={ga4Connected}
+                icon={<CheckCircle2 className="h-4 w-4" />}
+              />
+              <HealthRow
+                label="Resume uploads"
+                value={analytics?.product.resumeUploads}
+                suffix=""
+                connected={ga4Connected}
+                icon={<FileSearch className="h-4 w-4" />}
+              />
+              <HealthRow
+                label="Pricing views"
+                value={analytics?.product.pricingViews}
+                suffix=""
+                connected={ga4Connected}
+                icon={<CircleDollarSign className="h-4 w-4" />}
+              />
             </div>
           </Panel>
         </section>
@@ -269,25 +493,59 @@ export default function FounderDashboardPage() {
           <Panel
             eyebrow="Growth"
             title="Traffic sources"
-            description="See whether visitors come from search, communities or direct discovery."
+            description="Where today’s sessions are coming from."
           >
-            <EmptyState
-              icon={<Globe2 className="h-6 w-6" />}
-              title="Traffic acquisition is not connected"
-              description="GA4 will provide source, medium, campaign, country and device data."
-            />
+            {analytics && analytics.trafficSources.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {analytics.trafficSources.map((item) => (
+                  <DataRow
+                    key={item.source}
+                    label={item.source}
+                    primary={`${item.sessions} sessions`}
+                    secondary={`${item.users} users`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Globe2 className="h-6 w-6" />}
+                title={
+                  dashboard.status === "loading"
+                    ? "Loading traffic sources"
+                    : "No traffic-source data yet"
+                }
+                description="GA4 will display channel groups once sessions are recorded."
+              />
+            )}
           </Panel>
 
           <Panel
-            eyebrow="SEO"
-            title="Top landing pages and search demand"
-            description="See which pages and queries bring qualified visitors."
+            eyebrow="Top pages"
+            title="Most viewed pages today"
+            description="See which parts of OffernHire attract the most attention."
           >
-            <EmptyState
-              icon={<Search className="h-6 w-6" />}
-              title="Search Console is not connected"
-              description="Connect it after GA4 so clicks and impressions can be compared with conversions."
-            />
+            {analytics && analytics.topPages.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {analytics.topPages.map((item) => (
+                  <DataRow
+                    key={item.path}
+                    label={item.path}
+                    primary={`${item.views} views`}
+                    secondary={`${item.users} users`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Search className="h-6 w-6" />}
+                title={
+                  dashboard.status === "loading"
+                    ? "Loading top pages"
+                    : "No page data yet"
+                }
+                description="Pages will appear after GA4 records page views."
+              />
+            )}
           </Panel>
         </section>
 
@@ -295,7 +553,7 @@ export default function FounderDashboardPage() {
           <Panel
             eyebrow="Data connections"
             title="Founder dashboard setup"
-            description="Connect each source one at a time. Keep all sensitive credentials on the server."
+            description="GA4 is live. Connect the remaining sources one at a time."
           >
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {integrations.map(({ name, description, status, icon: Icon }) => (
@@ -309,6 +567,7 @@ export default function FounderDashboardPage() {
                     </span>
                     <StatusBadge status={status} />
                   </div>
+
                   <h3 className="mt-5 text-sm font-black">{name}</h3>
                   <p className="mt-2 text-xs leading-5 text-zinc-600">
                     {description}
@@ -322,37 +581,54 @@ export default function FounderDashboardPage() {
         <section className="mt-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
           <Panel
             eyebrow="Analytics events"
-            title="Events required for a reliable funnel"
-            description="Use these names consistently across the product."
+            title="Live funnel events"
+            description="Tracked events currently feeding Google Analytics."
           >
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {events.map((eventName) => (
-                <div
-                  key={eventName}
-                  className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3"
-                >
-                  <Target className="h-4 w-4 text-orange-400" />
-                  <code className="text-xs font-semibold text-zinc-300">
-                    {eventName}
-                  </code>
-                </div>
-              ))}
+              {trackedEvents.map((eventName) => {
+                const count = analytics?.events[eventName] ?? 0;
+                const exists =
+                  ga4Connected &&
+                  Object.prototype.hasOwnProperty.call(
+                    analytics?.events || {},
+                    eventName
+                  );
+
+                return (
+                  <div
+                    key={eventName}
+                    className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3"
+                  >
+                    <Target className="h-4 w-4 shrink-0 text-orange-400" />
+                    <code className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-300">
+                      {eventName}
+                    </code>
+                    <span
+                      className={`text-xs font-black ${
+                        exists ? "text-emerald-300" : "text-zinc-700"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </Panel>
 
           <Panel
             eyebrow="Next connection"
-            title="Start with Google Analytics 4"
-            description="Traffic is the first dependency for conversion analysis."
+            title="Connect Razorpay next"
+            description="Revenue is the next missing layer."
           >
             <div className="mt-6 rounded-2xl border border-orange-500/20 bg-orange-500/[0.055] p-5">
               <ShieldCheck className="h-6 w-6 text-orange-400" />
               <h3 className="mt-4 text-lg font-black">
-                Verify the GA4 property first
+                GA4 is successfully connected
               </h3>
               <p className="mt-2 text-sm leading-6 text-zinc-500">
-                Confirm that page views and active users reach GA4. Then connect
-                product events and revenue.
+                Traffic, page activity and product events are live. Razorpay
+                will add subscriptions, MRR and payment performance.
               </p>
             </div>
           </Panel>
@@ -415,12 +691,16 @@ function AccessScreen({
 
 function Metric({
   label,
+  value,
   description,
   icon,
+  status,
 }: {
   label: string;
+  value: string;
   description: string;
   icon: React.ReactNode;
+  status: Status;
 }) {
   return (
     <article className="rounded-2xl border border-white/[0.08] bg-[#0b0b0b] p-5">
@@ -432,12 +712,12 @@ function Metric({
           {icon}
         </span>
       </div>
-      <p className="mt-5 text-xl font-black">Not connected</p>
+      <p className="mt-5 text-2xl font-black">{value}</p>
       <p className="mt-2 min-h-10 text-xs leading-5 text-zinc-600">
         {description}
       </p>
       <div className="mt-4">
-        <StatusBadge status="not-connected" />
+        <StatusBadge status={status} />
       </div>
     </article>
   );
@@ -494,9 +774,15 @@ function StatusBadge({ status }: { status: Status }) {
 
 function HealthRow({
   label,
+  value,
+  suffix,
+  connected,
   icon,
 }: {
   label: string;
+  value?: number;
+  suffix: string;
+  connected: boolean;
   icon: React.ReactNode;
 }) {
   return (
@@ -506,9 +792,31 @@ function HealthRow({
       </span>
       <div className="flex-1">
         <p className="text-sm font-semibold text-zinc-300">{label}</p>
-        <p className="mt-1 text-xs text-zinc-700">Not connected</p>
+        <p className="mt-1 text-xs text-zinc-700">
+          {connected ? `${value ?? 0}${suffix}` : "Not connected"}
+        </p>
       </div>
-      <StatusBadge status="not-connected" />
+      <StatusBadge status={connected ? "connected" : "not-connected"} />
+    </div>
+  );
+}
+
+function DataRow({
+  label,
+  primary,
+  secondary,
+}: {
+  label: string;
+  primary: string;
+  secondary: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-zinc-300">{label}</p>
+        <p className="mt-1 text-xs text-zinc-700">{secondary}</p>
+      </div>
+      <p className="shrink-0 text-sm font-black text-white">{primary}</p>
     </div>
   );
 }
@@ -533,4 +841,13 @@ function EmptyState({
       </p>
     </div>
   );
+}
+
+function formatValue(
+  value: number | undefined,
+  state: DashboardState["status"]
+) {
+  if (typeof value === "number") return value.toLocaleString("en-IN");
+  if (state === "loading") return "Loading";
+  return "Not connected";
 }
