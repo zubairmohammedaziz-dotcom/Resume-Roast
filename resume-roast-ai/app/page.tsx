@@ -19,20 +19,36 @@ import {
 
 type WorkspaceTab = "overview" | "jobs" | "tailor";
 
-type AnalyticsDataLayer = Array<Record<string, unknown>>;
+type AnalyticsParameters = Record<
+  string,
+  string | number | boolean
+>;
+
+type AnalyticsWindow = typeof window & {
+  gtag?: (
+    command: "event",
+    eventName: string,
+    parameters?: AnalyticsParameters
+  ) => void;
+  dataLayer?: unknown[];
+};
 
 function trackEvent(
   eventName: string,
-  parameters: Record<string, string | number | boolean> = {}
+  parameters: AnalyticsParameters = {}
 ) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
 
-  const analyticsWindow = window as typeof window & {
-    dataLayer?: AnalyticsDataLayer;
-  };
+  const analyticsWindow = window as AnalyticsWindow;
+
+  if (typeof analyticsWindow.gtag === "function") {
+    analyticsWindow.gtag("event", eventName, parameters);
+    return;
+  }
 
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || [];
-
   analyticsWindow.dataLayer.push({
     event: eventName,
     ...parameters,
@@ -92,6 +108,10 @@ export default function Home() {
     function openTailorWorkspace() {
       setActiveTab("tailor");
 
+      trackEvent("tailor_started", {
+        source: "job_match",
+      });
+
       window.setTimeout(() => {
         document.getElementById("workspace-main")?.focus();
       }, 150);
@@ -103,6 +123,69 @@ export default function Home() {
       window.removeEventListener("tailor-job", openTailorWorkspace);
     };
   }, []);
+
+  useEffect(() => {
+    const sections = [
+      {
+        id: "resume-analyzer",
+        eventName: "resume_analyzer_viewed",
+      },
+      {
+        id: "pricing",
+        eventName: "pricing_viewed",
+      },
+      {
+        id: "our-story",
+        eventName: "our_story_viewed",
+      },
+    ];
+
+    const observedEvents = new Set<string>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const section = sections.find(
+            (item) => item.id === entry.target.id
+          );
+
+          if (
+            !section ||
+            observedEvents.has(section.eventName)
+          ) {
+            return;
+          }
+
+          observedEvents.add(section.eventName);
+
+          trackEvent(section.eventName, {
+            page_path: window.location.pathname,
+          });
+
+          observer.unobserve(entry.target);
+        });
+      },
+      {
+        threshold: 0.35,
+      }
+    );
+
+    sections.forEach((section) => {
+      const element = document.getElementById(section.id);
+
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [report]);
 
   const displayedJobs = useMemo<JobMatch[]>(() => {
     if (jobRecommendations.length > 0) {
@@ -127,7 +210,7 @@ export default function Home() {
   return;
 }
 
-    trackEvent("resume_analysis_started", {
+    trackEvent("analysis_started", {
       file_type: selectedFile.name.split(".").pop()?.toLowerCase() || "unknown",
       file_size_kb: Math.round(selectedFile.size / 1024),
     });
@@ -163,7 +246,7 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        trackEvent("resume_analysis_failed", {
+        trackEvent("analysis_failed", {
           failure_type: "api_response",
           status_code: response.status,
         });
@@ -291,6 +374,10 @@ export default function Home() {
 
         if (Array.isArray(jobs)) {
           setJobRecommendations(jobs);
+
+          trackEvent("job_matches_generated", {
+            job_matches_count: jobs.length,
+          });
         }
       } catch (error) {
         console.error("Job recommendation error:", error);
@@ -301,7 +388,7 @@ export default function Home() {
       setAnalysisStage("complete");
       setStatus("Analysis complete.");
 
-      trackEvent("resume_analysis_completed", {
+      trackEvent("analysis_completed", {
         ats_score: reportData.atsScore,
         recruiter_score: reportData.recruiterScore,
         hiring_probability: reportData.hiringProbability,
@@ -310,7 +397,7 @@ export default function Home() {
     } catch (error) {
       console.error("Resume analysis error:", error);
 
-      trackEvent("resume_analysis_failed", {
+      trackEvent("analysis_failed", {
         failure_type: "unexpected_error",
       });
 
@@ -355,12 +442,26 @@ export default function Home() {
   function changeWorkspaceTab(tab: WorkspaceTab) {
     setActiveTab(tab);
 
+    const eventByTab: Record<WorkspaceTab, string> = {
+      overview: "analysis_results_viewed",
+      jobs: "job_matches_viewed",
+      tailor: "tailor_started",
+    };
+
+    trackEvent(eventByTab[tab], {
+      workspace_tab: tab,
+    });
+
     window.setTimeout(() => {
       document.getElementById("workspace-main")?.focus();
     }, 50);
   }
 
   function startNewAnalysis() {
+    trackEvent("new_analysis_started", {
+      source: "workspace",
+    });
+
     setSelectedFile(null);
     setReport(null);
     setJobRecommendations([]);
