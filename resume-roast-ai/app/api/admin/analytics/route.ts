@@ -9,21 +9,51 @@ export const dynamic = "force-dynamic";
 
 const PROPERTY_ID = process.env.GA4_PROPERTY_ID;
 
-function createAnalyticsClient() {
-  const clientEmail = process.env.GA4_CLIENT_EMAIL;
-  const privateKey = process.env.GA4_PRIVATE_KEY?.replace(
-    /\\n/g,
-    "\n"
-  );
+type ServiceAccountCredentials = {
+  client_email?: string;
+  private_key?: string;
+};
 
-  if (!clientEmail || !privateKey) {
-    throw new Error("GA4 service-account credentials are missing.");
+function createAnalyticsClient() {
+  const encodedCredentials =
+    process.env.GA4_SERVICE_ACCOUNT_BASE64;
+
+  if (!encodedCredentials) {
+    throw new Error(
+      "GA4_SERVICE_ACCOUNT_BASE64 is not configured."
+    );
+  }
+
+  let credentials: ServiceAccountCredentials;
+
+  try {
+    const decodedCredentials = Buffer.from(
+      encodedCredentials.trim(),
+      "base64"
+    ).toString("utf8");
+
+    credentials = JSON.parse(
+      decodedCredentials
+    ) as ServiceAccountCredentials;
+  } catch {
+    throw new Error(
+      "GA4 service-account credentials could not be decoded."
+    );
+  }
+
+  if (
+    !credentials.client_email ||
+    !credentials.private_key
+  ) {
+    throw new Error(
+      "GA4 service-account credentials are incomplete."
+    );
   }
 
   return new BetaAnalyticsDataClient({
     credentials: {
-      client_email: clientEmail,
-      private_key: privateKey,
+      client_email: credentials.client_email,
+      private_key: credentials.private_key,
     },
   });
 }
@@ -31,9 +61,11 @@ function createAnalyticsClient() {
 function readMetric(
   value: string | null | undefined
 ): number {
-  const parsed = Number(value);
+  const parsedValue = Number(value);
 
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsedValue)
+    ? parsedValue
+    : 0;
 }
 
 export async function GET() {
@@ -48,12 +80,14 @@ export async function GET() {
       .trim()
       .toLowerCase();
 
-    const signedInEmail = (session?.user?.email || "")
+    const signedInEmail = (
+      session?.user?.email || ""
+    )
       .trim()
       .toLowerCase();
 
     if (
-      !session?.user?.email ||
+      !signedInEmail ||
       !allowedFounderEmail ||
       signedInEmail !== allowedFounderEmail
     ) {
@@ -80,7 +114,9 @@ export async function GET() {
       );
     }
 
-    const analyticsClient = createAnalyticsClient();
+    const analyticsClient =
+      createAnalyticsClient();
+
     const property = `properties/${PROPERTY_ID}`;
 
     const [
@@ -92,7 +128,11 @@ export async function GET() {
     ] = await Promise.all([
       analyticsClient.runRealtimeReport({
         property,
-        metrics: [{ name: "activeUsers" }],
+        metrics: [
+          {
+            name: "activeUsers",
+          },
+        ],
       }),
 
       analyticsClient.runReport({
@@ -104,10 +144,18 @@ export async function GET() {
           },
         ],
         metrics: [
-          { name: "activeUsers" },
-          { name: "newUsers" },
-          { name: "sessions" },
-          { name: "screenPageViews" },
+          {
+            name: "activeUsers",
+          },
+          {
+            name: "newUsers",
+          },
+          {
+            name: "sessions",
+          },
+          {
+            name: "screenPageViews",
+          },
         ],
       }),
 
@@ -119,8 +167,16 @@ export async function GET() {
             endDate: "today",
           },
         ],
-        dimensions: [{ name: "eventName" }],
-        metrics: [{ name: "eventCount" }],
+        dimensions: [
+          {
+            name: "eventName",
+          },
+        ],
+        metrics: [
+          {
+            name: "eventCount",
+          },
+        ],
         orderBys: [
           {
             metric: {
@@ -129,7 +185,7 @@ export async function GET() {
             desc: true,
           },
         ],
-        limit: 50,
+        limit: 100,
       }),
 
       analyticsClient.runReport({
@@ -140,10 +196,18 @@ export async function GET() {
             endDate: "today",
           },
         ],
-        dimensions: [{ name: "pagePath" }],
+        dimensions: [
+          {
+            name: "pagePath",
+          },
+        ],
         metrics: [
-          { name: "screenPageViews" },
-          { name: "activeUsers" },
+          {
+            name: "screenPageViews",
+          },
+          {
+            name: "activeUsers",
+          },
         ],
         orderBys: [
           {
@@ -170,8 +234,12 @@ export async function GET() {
           },
         ],
         metrics: [
-          { name: "sessions" },
-          { name: "activeUsers" },
+          {
+            name: "sessions",
+          },
+          {
+            name: "activeUsers",
+          },
         ],
         orderBys: [
           {
@@ -185,32 +253,43 @@ export async function GET() {
       }),
     ]);
 
-    const realtime =
+    const realtimeValue =
       realtimeResponse[0].rows?.[0]
         ?.metricValues?.[0]?.value;
 
     const overviewMetrics =
-      overviewResponse[0].rows?.[0]?.metricValues || [];
+      overviewResponse[0].rows?.[0]
+        ?.metricValues || [];
 
     const events = Object.fromEntries(
-      (eventsResponse[0].rows || []).map((row) => [
-        row.dimensionValues?.[0]?.value || "unknown",
-        readMetric(row.metricValues?.[0]?.value),
-      ])
+      (eventsResponse[0].rows || []).map(
+        (row) => {
+          const eventName =
+            row.dimensionValues?.[0]?.value ||
+            "unknown";
+
+          const eventCount = readMetric(
+            row.metricValues?.[0]?.value
+          );
+
+          return [eventName, eventCount];
+        }
+      )
     );
 
-    const topPages = (pagesResponse[0].rows || []).map(
-      (row) => ({
-        path:
-          row.dimensionValues?.[0]?.value || "Unknown",
-        views: readMetric(
-          row.metricValues?.[0]?.value
-        ),
-        users: readMetric(
-          row.metricValues?.[1]?.value
-        ),
-      })
-    );
+    const topPages = (
+      pagesResponse[0].rows || []
+    ).map((row) => ({
+      path:
+        row.dimensionValues?.[0]?.value ||
+        "Unknown",
+      views: readMetric(
+        row.metricValues?.[0]?.value
+      ),
+      users: readMetric(
+        row.metricValues?.[1]?.value
+      ),
+    }));
 
     const trafficSources = (
       sourcesResponse[0].rows || []
@@ -228,6 +307,18 @@ export async function GET() {
 
     const visitorsToday = readMetric(
       overviewMetrics[0]?.value
+    );
+
+    const newUsersToday = readMetric(
+      overviewMetrics[1]?.value
+    );
+
+    const sessionsToday = readMetric(
+      overviewMetrics[2]?.value
+    );
+
+    const pageViewsToday = readMetric(
+      overviewMetrics[3]?.value
     );
 
     const resumeUploads =
@@ -249,41 +340,80 @@ export async function GET() {
     const pricingViews =
       events.pricing_viewed || 0;
 
+    const checkoutStarts =
+      events.checkout_started || 0;
+
+    const paidSubscriptions =
+      events.subscription_success || 0;
+
+    const analysisFailures =
+      events.analysis_failed ||
+      events.resume_analysis_failed ||
+      0;
+
+    const successfulAnalysisRate =
+      analysisStarted > 0
+        ? Math.round(
+            (analysisCompleted /
+              analysisStarted) *
+              100
+          )
+        : 0;
+
+    const visitorToUploadRate =
+      visitorsToday > 0
+        ? Math.round(
+            (resumeUploads /
+              visitorsToday) *
+              100
+          )
+        : 0;
+
+    const visitorToProRate =
+      visitorsToday > 0
+        ? Number(
+            (
+              (paidSubscriptions /
+                visitorsToday) *
+              100
+            ).toFixed(2)
+          )
+        : 0;
+
     return NextResponse.json({
       success: true,
       generatedAt: new Date().toISOString(),
 
       overview: {
         visitorsToday,
-        activeUsersNow: readMetric(realtime),
-        newUsersToday: readMetric(
-          overviewMetrics[1]?.value
+        activeUsersNow: readMetric(
+          realtimeValue
         ),
-        sessionsToday: readMetric(
-          overviewMetrics[2]?.value
-        ),
-        pageViewsToday: readMetric(
-          overviewMetrics[3]?.value
-        ),
+        newUsersToday,
+        sessionsToday,
+        pageViewsToday,
       },
 
       product: {
         resumeUploads,
         analysisStarted,
         analysisCompleted,
+        analysisFailures,
         tailorStarted,
         pricingViews,
+        successfulAnalysisRate,
       },
 
       funnel: {
         visitors: visitorsToday,
         resumeUploads,
-        analysesCompleted: analysisCompleted,
+        analysesCompleted:
+          analysisCompleted,
         tailoredResumes: tailorStarted,
-        checkoutStarts:
-          events.checkout_started || 0,
-        paidSubscriptions:
-          events.subscription_success || 0,
+        checkoutStarts,
+        paidSubscriptions,
+        visitorToUploadRate,
+        visitorToProRate,
       },
 
       topPages,
@@ -291,7 +421,10 @@ export async function GET() {
       events,
     });
   } catch (error) {
-    console.error("Founder analytics API error:", error);
+    console.error(
+      "Founder analytics API error:",
+      error
+    );
 
     return NextResponse.json(
       {
