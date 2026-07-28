@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -193,17 +193,9 @@ export default function FounderDashboardPage() {
   const analytics = dashboard.status === "success" ? dashboard.data : null;
   const ga4Connected = Boolean(analytics);
 
-  const generatedAt = useMemo(() => {
-    if (!analytics?.generatedAt) return null;
-    const value = new Date(analytics.generatedAt);
-    if (Number.isNaN(value.getTime())) return null;
-
-    return new Intl.DateTimeFormat("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Asia/Kolkata",
-    }).format(value);
-  }, [analytics?.generatedAt]);
+  const generatedAt = analytics?.generatedAt
+    ? formatGeneratedAt(analytics.generatedAt)
+    : null;
 
   const funnel = analytics
     ? [
@@ -850,4 +842,19 @@ function formatValue(
   if (typeof value === "number") return value.toLocaleString("en-IN");
   if (state === "loading") return "Loading";
   return "Not connected";
+}
+
+
+function formatGeneratedAt(dateString: string) {
+  const value = new Date(dateString);
+
+  if (Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata",
+  }).format(value);
 }
