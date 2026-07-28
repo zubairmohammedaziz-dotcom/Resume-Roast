@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { BetaAnalyticsDataClient } from "@google-analytics/data";
+import {
+  BetaAnalyticsDataClient,
+  protos,
+} from "@google-analytics/data";
 
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const PROPERTY_ID = process.env.GA4_PROPERTY_ID;
 
 type ServiceAccountCredentials = {
   client_email?: string;
   private_key?: string;
+};
+
+type ReportResponse =
+  protos.google.analytics.data.v1beta.IRunReportResponse;
+
+type AnalyticsReports = {
+  overview: ReportResponse;
+  events: ReportResponse;
+  pages: ReportResponse;
+  sources: ReportResponse;
 };
 
 function createAnalyticsClient() {
@@ -68,9 +82,257 @@ function readMetric(
     : 0;
 }
 
+function getEventCount(
+  events: Record<string, number>,
+  names: string[]
+): number {
+  for (const name of names) {
+    const count = events[name];
+
+    if (typeof count === "number") {
+      return count;
+    }
+  }
+
+  return 0;
+}
+
+async function runAnalyticsReports({
+  analyticsClient,
+  property,
+  startDate,
+  endDate,
+}: {
+  analyticsClient: BetaAnalyticsDataClient;
+  property: string;
+  startDate: string;
+  endDate: string;
+}): Promise<AnalyticsReports> {
+  const dateRanges = [
+    {
+      startDate,
+      endDate,
+    },
+  ];
+
+  const [
+    overviewResult,
+    eventsResult,
+    pagesResult,
+    sourcesResult,
+  ] = await Promise.all([
+    analyticsClient.runReport({
+      property,
+      dateRanges,
+      metrics: [
+        {
+          name: "totalUsers",
+        },
+        {
+          name: "newUsers",
+        },
+        {
+          name: "sessions",
+        },
+        {
+          name: "screenPageViews",
+        },
+      ],
+      keepEmptyRows: false,
+    }),
+
+    analyticsClient.runReport({
+      property,
+      dateRanges,
+      dimensions: [
+        {
+          name: "eventName",
+        },
+      ],
+      metrics: [
+        {
+          name: "eventCount",
+        },
+      ],
+      orderBys: [
+        {
+          metric: {
+            metricName: "eventCount",
+          },
+          desc: true,
+        },
+      ],
+      keepEmptyRows: false,
+      limit: 100,
+    }),
+
+    analyticsClient.runReport({
+      property,
+      dateRanges,
+      dimensions: [
+        {
+          name: "pagePath",
+        },
+      ],
+      metrics: [
+        {
+          name: "screenPageViews",
+        },
+        {
+          name: "totalUsers",
+        },
+      ],
+      orderBys: [
+        {
+          metric: {
+            metricName: "screenPageViews",
+          },
+          desc: true,
+        },
+      ],
+      keepEmptyRows: false,
+      limit: 10,
+    }),
+
+    analyticsClient.runReport({
+      property,
+      dateRanges,
+      dimensions: [
+        {
+          name: "sessionDefaultChannelGroup",
+        },
+      ],
+      metrics: [
+        {
+          name: "sessions",
+        },
+        {
+          name: "totalUsers",
+        },
+      ],
+      orderBys: [
+        {
+          metric: {
+            metricName: "sessions",
+          },
+          desc: true,
+        },
+      ],
+      keepEmptyRows: false,
+      limit: 10,
+    }),
+  ]);
+
+  return {
+    overview: overviewResult[0],
+    events: eventsResult[0],
+    pages: pagesResult[0],
+    sources: sourcesResult[0],
+  };
+}
+
+function getOverviewMetrics(
+  response: ReportResponse
+) {
+  const metricValues =
+    response.rows?.[0]?.metricValues || [];
+
+  return {
+    visitors: readMetric(
+      metricValues[0]?.value
+    ),
+    newUsers: readMetric(
+      metricValues[1]?.value
+    ),
+    sessions: readMetric(
+      metricValues[2]?.value
+    ),
+    pageViews: readMetric(
+      metricValues[3]?.value
+    ),
+  };
+}
+
+function getEvents(
+  response: ReportResponse
+): Record<string, number> {
+  return Object.fromEntries(
+    (response.rows || []).map((row) => {
+      const eventName =
+        row.dimensionValues?.[0]?.value ||
+        "unknown";
+
+      const eventCount = readMetric(
+        row.metricValues?.[0]?.value
+      );
+
+      return [eventName, eventCount];
+    })
+  );
+}
+
+function getTopPages(
+  response: ReportResponse
+) {
+  return (response.rows || []).map(
+    (row) => ({
+      path:
+        row.dimensionValues?.[0]?.value ||
+        "Unknown",
+
+      views: readMetric(
+        row.metricValues?.[0]?.value
+      ),
+
+      users: readMetric(
+        row.metricValues?.[1]?.value
+      ),
+    })
+  );
+}
+
+function getTrafficSources(
+  response: ReportResponse
+) {
+  return (response.rows || []).map(
+    (row) => ({
+      source:
+        row.dimensionValues?.[0]?.value ||
+        "Unassigned",
+
+      sessions: readMetric(
+        row.metricValues?.[0]?.value
+      ),
+
+      users: readMetric(
+        row.metricValues?.[1]?.value
+      ),
+    })
+  );
+}
+
+function reportHasData(
+  reports: AnalyticsReports
+): boolean {
+  const overview = getOverviewMetrics(
+    reports.overview
+  );
+
+  return (
+    overview.visitors > 0 ||
+    overview.sessions > 0 ||
+    overview.pageViews > 0 ||
+    Boolean(reports.events.rows?.length) ||
+    Boolean(reports.pages.rows?.length) ||
+    Boolean(reports.sources.rows?.length)
+  );
+}
+
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(
+      authOptions
+    );
 
     const allowedFounderEmail = (
       process.env.FOUNDER_EMAIL ||
@@ -89,7 +351,8 @@ export async function GET() {
     if (
       !signedInEmail ||
       !allowedFounderEmail ||
-      signedInEmail !== allowedFounderEmail
+      signedInEmail !==
+        allowedFounderEmail
     ) {
       return NextResponse.json(
         {
@@ -98,6 +361,10 @@ export async function GET() {
         },
         {
           status: 401,
+          headers: {
+            "Cache-Control":
+              "no-store, max-age=0",
+          },
         }
       );
     }
@@ -106,10 +373,15 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: "GA4_PROPERTY_ID is not configured.",
+          error:
+            "GA4_PROPERTY_ID is not configured.",
         },
         {
           status: 500,
+          headers: {
+            "Cache-Control":
+              "no-store, max-age=0",
+          },
         }
       );
     }
@@ -117,309 +389,231 @@ export async function GET() {
     const analyticsClient =
       createAnalyticsClient();
 
-    const property = `properties/${PROPERTY_ID}`;
+    const property =
+      `properties/${PROPERTY_ID}`;
 
-    const [
-      realtimeResponse,
-      overviewResponse,
-      eventsResponse,
-      pagesResponse,
-      sourcesResponse,
-    ] = await Promise.all([
-      analyticsClient.runRealtimeReport({
-        property,
-        metrics: [
-          {
-            name: "activeUsers",
-          },
-        ],
-      }),
-
-      analyticsClient.runReport({
-        property,
-        dateRanges: [
-          {
-            startDate: "today",
-            endDate: "today",
-          },
-        ],
-        metrics: [
-          {
-            name: "activeUsers",
-          },
-          {
-            name: "newUsers",
-          },
-          {
-            name: "sessions",
-          },
-          {
-            name: "screenPageViews",
-          },
-        ],
-      }),
-
-      analyticsClient.runReport({
-        property,
-        dateRanges: [
-          {
-            startDate: "today",
-            endDate: "today",
-          },
-        ],
-        dimensions: [
-          {
-            name: "eventName",
-          },
-        ],
-        metrics: [
-          {
-            name: "eventCount",
-          },
-        ],
-        orderBys: [
-          {
-            metric: {
-              metricName: "eventCount",
+    const [realtimeResult, todayReports] =
+      await Promise.all([
+        analyticsClient.runRealtimeReport({
+          property,
+          metrics: [
+            {
+              name: "activeUsers",
             },
-            desc: true,
-          },
-        ],
-        limit: 100,
-      }),
+          ],
+        }),
 
-      analyticsClient.runReport({
-        property,
-        dateRanges: [
-          {
-            startDate: "today",
-            endDate: "today",
-          },
-        ],
-        dimensions: [
-          {
-            name: "pagePath",
-          },
-        ],
-        metrics: [
-          {
-            name: "screenPageViews",
-          },
-          {
-            name: "activeUsers",
-          },
-        ],
-        orderBys: [
-          {
-            metric: {
-              metricName: "screenPageViews",
-            },
-            desc: true,
-          },
-        ],
-        limit: 10,
-      }),
-
-      analyticsClient.runReport({
-        property,
-        dateRanges: [
-          {
-            startDate: "today",
-            endDate: "today",
-          },
-        ],
-        dimensions: [
-          {
-            name: "sessionDefaultChannelGroup",
-          },
-        ],
-        metrics: [
-          {
-            name: "sessions",
-          },
-          {
-            name: "activeUsers",
-          },
-        ],
-        orderBys: [
-          {
-            metric: {
-              metricName: "sessions",
-            },
-            desc: true,
-          },
-        ],
-        limit: 10,
-      }),
-    ]);
+        runAnalyticsReports({
+          analyticsClient,
+          property,
+          startDate: "today",
+          endDate: "today",
+        }),
+      ]);
 
     const realtimeValue =
-      realtimeResponse[0].rows?.[0]
+      realtimeResult[0].rows?.[0]
         ?.metricValues?.[0]?.value;
 
-    const overviewMetrics =
-      overviewResponse[0].rows?.[0]
-        ?.metricValues || [];
+    const activeUsersNow =
+      readMetric(realtimeValue);
 
-    const events = Object.fromEntries(
-      (eventsResponse[0].rows || []).map(
-        (row) => {
-          const eventName =
-            row.dimensionValues?.[0]?.value ||
-            "unknown";
+    /*
+     * GA4 realtime data appears quickly, but standard
+     * processed reports may be delayed.
+     *
+     * When today's processed report is completely empty
+     * while realtime users exist, use the most recent
+     * two-day processed window as a temporary fallback.
+     */
+    let reports = todayReports;
+    let reportingWindow:
+      | "today"
+      | "recent" = "today";
 
-          const eventCount = readMetric(
-            row.metricValues?.[0]?.value
-          );
+    if (
+      !reportHasData(todayReports) &&
+      activeUsersNow > 0
+    ) {
+      reports =
+        await runAnalyticsReports({
+          analyticsClient,
+          property,
+          startDate: "yesterday",
+          endDate: "today",
+        });
 
-          return [eventName, eventCount];
-        }
-      )
+      reportingWindow = "recent";
+    }
+
+    const overview = getOverviewMetrics(
+      reports.overview
     );
 
-    const topPages = (
-      pagesResponse[0].rows || []
-    ).map((row) => ({
-      path:
-        row.dimensionValues?.[0]?.value ||
-        "Unknown",
-      views: readMetric(
-        row.metricValues?.[0]?.value
-      ),
-      users: readMetric(
-        row.metricValues?.[1]?.value
-      ),
-    }));
-
-    const trafficSources = (
-      sourcesResponse[0].rows || []
-    ).map((row) => ({
-      source:
-        row.dimensionValues?.[0]?.value ||
-        "Unassigned",
-      sessions: readMetric(
-        row.metricValues?.[0]?.value
-      ),
-      users: readMetric(
-        row.metricValues?.[1]?.value
-      ),
-    }));
-
-    const visitorsToday = readMetric(
-      overviewMetrics[0]?.value
+    const events = getEvents(
+      reports.events
     );
 
-    const newUsersToday = readMetric(
-      overviewMetrics[1]?.value
+    const topPages = getTopPages(
+      reports.pages
     );
 
-    const sessionsToday = readMetric(
-      overviewMetrics[2]?.value
-    );
-
-    const pageViewsToday = readMetric(
-      overviewMetrics[3]?.value
-    );
+    const trafficSources =
+      getTrafficSources(
+        reports.sources
+      );
 
     const resumeUploads =
-      events.resume_uploaded || 0;
+      getEventCount(events, [
+        "resume_uploaded",
+        "resume_upload",
+      ]);
 
     const analysisStarted =
-      events.analysis_started ||
-      events.resume_analysis_started ||
-      0;
+      getEventCount(events, [
+        "analysis_started",
+        "resume_analysis_started",
+      ]);
 
     const analysisCompleted =
-      events.analysis_completed ||
-      events.resume_analysis_completed ||
-      0;
-
-    const tailorStarted =
-      events.tailor_started || 0;
-
-    const pricingViews =
-      events.pricing_viewed || 0;
-
-    const checkoutStarts =
-      events.checkout_started || 0;
-
-    const paidSubscriptions =
-      events.subscription_success || 0;
+      getEventCount(events, [
+        "analysis_completed",
+        "resume_analysis_completed",
+      ]);
 
     const analysisFailures =
-      events.analysis_failed ||
-      events.resume_analysis_failed ||
-      0;
+      getEventCount(events, [
+        "analysis_failed",
+        "resume_analysis_failed",
+      ]);
+
+    const tailorStarted =
+      getEventCount(events, [
+        "tailor_started",
+        "resume_tailor_started",
+      ]);
+
+    const pricingViews =
+      getEventCount(events, [
+        "pricing_viewed",
+        "pricing_page_viewed",
+      ]);
+
+    const checkoutStarts =
+      getEventCount(events, [
+        "checkout_started",
+        "begin_checkout",
+      ]);
+
+    const paidSubscriptions =
+      getEventCount(events, [
+        "subscription_success",
+        "purchase",
+        "payment_success",
+      ]);
 
     const successfulAnalysisRate =
       analysisStarted > 0
-        ? Math.round(
-            (analysisCompleted /
-              analysisStarted) *
-              100
+        ? Math.min(
+            100,
+            Math.round(
+              (analysisCompleted /
+                analysisStarted) *
+                100
+            )
           )
         : 0;
 
     const visitorToUploadRate =
-      visitorsToday > 0
-        ? Math.round(
-            (resumeUploads /
-              visitorsToday) *
-              100
+      overview.visitors > 0
+        ? Math.min(
+            100,
+            Math.round(
+              (resumeUploads /
+                overview.visitors) *
+                100
+            )
           )
         : 0;
 
     const visitorToProRate =
-      visitorsToday > 0
+      overview.visitors > 0
         ? Number(
-            (
+            Math.min(
+              100,
               (paidSubscriptions /
-                visitorsToday) *
-              100
+                overview.visitors) *
+                100
             ).toFixed(2)
           )
         : 0;
 
-    return NextResponse.json({
-      success: true,
-      generatedAt: new Date().toISOString(),
+    return NextResponse.json(
+      {
+        success: true,
+        generatedAt:
+          new Date().toISOString(),
 
-      overview: {
-        visitorsToday,
-        activeUsersNow: readMetric(
-          realtimeValue
-        ),
-        newUsersToday,
-        sessionsToday,
-        pageViewsToday,
-      },
+        reportingWindow,
 
-      product: {
-        resumeUploads,
-        analysisStarted,
-        analysisCompleted,
-        analysisFailures,
-        tailorStarted,
-        pricingViews,
-        successfulAnalysisRate,
-      },
+        overview: {
+          visitorsToday:
+            overview.visitors,
 
-      funnel: {
-        visitors: visitorsToday,
-        resumeUploads,
-        analysesCompleted:
+          activeUsersNow,
+
+          newUsersToday:
+            overview.newUsers,
+
+          sessionsToday:
+            overview.sessions,
+
+          pageViewsToday:
+            overview.pageViews,
+        },
+
+        product: {
+          resumeUploads,
+          analysisStarted,
           analysisCompleted,
-        tailoredResumes: tailorStarted,
-        checkoutStarts,
-        paidSubscriptions,
-        visitorToUploadRate,
-        visitorToProRate,
-      },
+          analysisFailures,
+          tailorStarted,
+          pricingViews,
+          successfulAnalysisRate,
+        },
 
-      topPages,
-      trafficSources,
-      events,
-    });
+        funnel: {
+          visitors:
+            overview.visitors,
+
+          resumeUploads,
+
+          analysesCompleted:
+            analysisCompleted,
+
+          tailoredResumes:
+            tailorStarted,
+
+          checkoutStarts,
+
+          paidSubscriptions,
+
+          visitorToUploadRate,
+
+          visitorToProRate,
+        },
+
+        topPages,
+        trafficSources,
+        events,
+      },
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, max-age=0",
+        },
+      }
+    );
   } catch (error) {
     console.error(
       "Founder analytics API error:",
@@ -436,6 +630,10 @@ export async function GET() {
       },
       {
         status: 500,
+        headers: {
+          "Cache-Control":
+            "no-store, max-age=0",
+        },
       }
     );
   }
