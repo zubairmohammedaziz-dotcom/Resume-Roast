@@ -62,7 +62,76 @@ type RazorpayOptions = {
 
 type SubscriptionStatusResponse = {
   isPro?: boolean;
+  error?: string;
 };
+
+type VerificationResponse = {
+  success?: boolean;
+  error?: string;
+};
+
+const VERIFICATION_ATTEMPTS = 8;
+const VERIFICATION_DELAY_MS = 1500;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
+async function verifyPaymentWithRetry(
+  paymentResponse: RazorpaySuccessResponse
+): Promise<void> {
+  let lastError =
+    "Payment was received, but Pro activation is still processing.";
+
+  for (
+    let attempt = 1;
+    attempt <= VERIFICATION_ATTEMPTS;
+    attempt += 1
+  ) {
+    const response = await fetch(
+      "/api/razorpay/verify-subscription",
+      {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(paymentResponse),
+      }
+    );
+
+    const data =
+      (await response.json()) as VerificationResponse;
+
+    if (response.ok && data.success === true) {
+      return;
+    }
+
+    lastError =
+      data.error ||
+      "Payment was received, but Pro activation is still processing.";
+
+    const retryable =
+      response.status === 409 ||
+      response.status === 425 ||
+      response.status === 503;
+
+    if (
+      !retryable ||
+      attempt === VERIFICATION_ATTEMPTS
+    ) {
+      throw new Error(lastError);
+    }
+
+    await wait(VERIFICATION_DELAY_MS);
+  }
+
+  throw new Error(lastError);
+}
 
 declare global {
   interface Window {
@@ -414,51 +483,41 @@ export default function Pricing() {
 
         handler: async (paymentResponse) => {
           try {
-            const verificationResponse = await fetch(
-              "/api/razorpay/verify-subscription",
-              {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(paymentResponse),
-              }
+            setCheckoutError(
+              "Payment received. Activating your Pro plan..."
             );
 
-            const verificationData =
-              (await verificationResponse.json()) as {
-                success?: boolean;
-                error?: string;
-              };
+            await verifyPaymentWithRetry(
+              paymentResponse
+            );
 
-            if (
-              !verificationResponse.ok ||
-              !verificationData.success
-            ) {
-              throw new Error(
-                verificationData.error ||
-                  "Payment completed, but verification is pending."
-              );
-            }
+            localStorage.setItem(
+              PLAN_KEY,
+              "pro"
+            );
 
-            localStorage.setItem(PLAN_KEY, "pro");
             setIsPro(true);
+            setCheckoutError("");
 
             window.dispatchEvent(
-              new CustomEvent(PLAN_UPDATED_EVENT, {
-                detail: {
-                  plan: "pro",
-                },
-              })
+              new CustomEvent(
+                PLAN_UPDATED_EVENT,
+                {
+                  detail: {
+                    plan: "pro",
+                  },
+                }
+              )
             );
 
-            window.location.assign("/success");
+            window.location.assign(
+              "/success?payment=verified"
+            );
           } catch (verificationError) {
             const message =
               verificationError instanceof Error
                 ? verificationError.message
-                : "Payment verification failed. Please contact support.";
+                : "Payment was received, but automatic activation failed. Please contact support.";
 
             console.error(
               "Razorpay verification error:",
