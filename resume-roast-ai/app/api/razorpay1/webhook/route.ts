@@ -27,6 +27,8 @@ type PaymentEntity = {
   method?: string | null;
   subscription_id?: string | null;
   customer_id?: string | null;
+  email?: string | null;
+  contact?: string | null;
   notes?: RazorpayNotes;
 };
 
@@ -88,7 +90,7 @@ function verifyWebhookSignature({
 }
 
 function normaliseEmail(
-  value: string | undefined
+  value: string | null | undefined
 ) {
   return value?.trim().toLowerCase() || "";
 }
@@ -334,20 +336,32 @@ export async function POST(request: Request) {
         );
     }
 
-    const notes =
-      subscription?.notes ||
-      payment?.notes ||
-      {};
+    const subscriptionNotes =
+      subscription?.notes || {};
+
+    const paymentNotes =
+      payment?.notes || {};
 
     const userId =
-      notes.userId?.trim() ||
-      notes.user_id?.trim() ||
+      subscriptionNotes.userId?.trim() ||
+      subscriptionNotes.user_id?.trim() ||
+      paymentNotes.userId?.trim() ||
+      paymentNotes.user_id?.trim() ||
       "";
 
+    /*
+      App-created subscriptions identify the user
+      through notes. Razorpay Dashboard-created test
+      links may not contain notes, so payment.email is
+      used as a safe fallback.
+    */
     const userEmail =
       normaliseEmail(
-        notes.email ||
-          notes.userEmail
+        subscriptionNotes.email ||
+          subscriptionNotes.userEmail ||
+          paymentNotes.email ||
+          paymentNotes.userEmail ||
+          payment?.email
       );
 
     if (!userId && !userEmail) {
@@ -357,9 +371,10 @@ export async function POST(request: Request) {
           eventName,
           paymentId: payment?.id,
           subscriptionId,
-          subscriptionNotes:
-            subscription?.notes,
-          paymentNotes: payment?.notes,
+          paymentEmail:
+            payment?.email || null,
+          subscriptionNotes,
+          paymentNotes,
         }
       );
 
