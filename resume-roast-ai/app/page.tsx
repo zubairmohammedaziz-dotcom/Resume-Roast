@@ -9,8 +9,6 @@ import Footer from "../components/Footer";
 import JobMatches from "../components/JobMatches";
 import TailorResume from "../components/TailorResume";
 import type { JobMatch, Report } from "../types/report";
-import WhyOffernHire from "@/components/WhyOffernHire";
-import OurStory from "../components/OurStory";
 import {
   canAnalyzeResume,
   limitJobMatches,
@@ -133,10 +131,6 @@ export default function Home() {
       {
         id: "pricing",
         eventName: "pricing_viewed",
-      },
-      {
-        id: "our-story",
-        eventName: "our_story_viewed",
       },
     ];
 
@@ -480,10 +474,8 @@ export default function Home() {
       <main className="min-h-screen bg-[#060606] text-white">
         <Navbar />
 
-        <div className="mx-auto max-w-[1480px] px-4 pb-16 pt-5 sm:px-6 lg:px-8">
-         <Hero />
-<WhyOffernHire />
-<FeatureGrid />
+        <div className="mx-auto max-w-[1480px] px-4 pb-12 pt-5 sm:px-6 lg:px-8">
+          <Hero />
 
           <UploadWorkspace
             selectedFile={selectedFile}
@@ -509,8 +501,8 @@ export default function Home() {
             onAnalyze={handleAnalyze}
           />
 
+          <FeatureGrid />
           <Pricing />
-          <OurStory />
           <Footer />
         </div>
       </main>
