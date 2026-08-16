@@ -17,6 +17,7 @@ declare global {
 export default function Navbar() {
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileAboutOpen, setMobileAboutOpen] = useState(false);
 
   // Track a successful Google login only after authentication completes.
   useEffect(() => {
@@ -47,18 +48,19 @@ export default function Navbar() {
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
+    setMobileAboutOpen(false);
   };
 
   return (
     <header className="border-b border-zinc-800 bg-black">
-      <div className="mx-auto flex min-h-[68px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Logo */}
         <Link
           href="/"
           onClick={closeMobileMenu}
           className="flex min-w-0 items-center gap-3"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-lg font-black text-black">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-lg font-black text-black sm:h-10 sm:w-10">
             O
           </div>
 
@@ -109,6 +111,33 @@ export default function Navbar() {
           >
             Pricing
           </Link>
+
+          {/* About Dropdown */}
+          <div className="group relative">
+            <button
+              type="button"
+              className="flex items-center gap-1 transition hover:text-orange-400"
+            >
+              About
+              <span className="text-xs">▾</span>
+            </button>
+
+            <div className="invisible absolute right-0 top-full z-50 mt-3 w-56 translate-y-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 opacity-0 shadow-2xl transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+              <Link
+                href="/our-story"
+                className="block rounded-xl px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 hover:text-orange-400"
+              >
+                Our Story
+              </Link>
+
+              <Link
+                href="/why-offernhire"
+                className="block rounded-xl px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 hover:text-orange-400"
+              >
+                Why OffernHire
+              </Link>
+            </div>
+          </div>
         </nav>
 
         {/* Account Actions + Mobile Menu Button */}
@@ -211,6 +240,38 @@ export default function Navbar() {
             >
               Pricing
             </Link>
+
+            {/* Mobile About */}
+            <button
+              type="button"
+              onClick={() => setMobileAboutOpen(!mobileAboutOpen)}
+              className="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-bold text-zinc-300 transition hover:bg-zinc-900 hover:text-orange-400"
+            >
+              <span>About</span>
+              <span className="text-xs">
+                {mobileAboutOpen ? "▲" : "▼"}
+              </span>
+            </button>
+
+            {mobileAboutOpen && (
+              <div className="ml-3 flex flex-col gap-1 border-l border-zinc-800 pl-3">
+                <Link
+                  href="/our-story"
+                  onClick={closeMobileMenu}
+                  className="rounded-xl px-4 py-3 text-sm font-bold text-zinc-400 transition hover:bg-zinc-900 hover:text-orange-400"
+                >
+                  Our Story
+                </Link>
+
+                <Link
+                  href="/why-offernhire"
+                  onClick={closeMobileMenu}
+                  className="rounded-xl px-4 py-3 text-sm font-bold text-zinc-400 transition hover:bg-zinc-900 hover:text-orange-400"
+                >
+                  Why OffernHire
+                </Link>
+              </div>
+            )}
 
             {session && (
               <>
