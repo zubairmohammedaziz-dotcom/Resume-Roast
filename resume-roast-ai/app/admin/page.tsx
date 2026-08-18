@@ -273,7 +273,7 @@ export default function FounderDashboardPage() {
 
             <button
               type="button"
-              onClick={() => void loadAnalytics()}
+              onClick={() => void Promise.all([loadAnalytics(), loadConnections()])}
               disabled={dashboard.status === "loading"}
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 text-sm font-semibold text-zinc-400 transition hover:text-white disabled:opacity-50"
             >
