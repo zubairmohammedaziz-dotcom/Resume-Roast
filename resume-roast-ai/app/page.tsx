@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import FeatureGrid from "../components/FeatureGrid";
@@ -9,11 +10,7 @@ import Footer from "../components/Footer";
 import JobMatches from "../components/JobMatches";
 import TailorResume from "../components/TailorResume";
 import type { JobMatch, Report } from "../types/report";
-import {
-  canAnalyzeResume,
-  limitJobMatches,
-  recordSuccessfulAnalysis,
-} from "../lib/freeLimits";
+import { limitJobMatches } from "../lib/freeLimits";
 
 type WorkspaceTab = "overview" | "jobs" | "tailor";
 
@@ -92,6 +89,7 @@ const workspaceTabs: {
 ];
 
 export default function Home() {
+  const { data: session, status: authStatus } = useSession();
   const [jobRecommendations, setJobRecommendations] = useState<JobMatch[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -189,218 +187,222 @@ export default function Home() {
     return report?.jobMatches || [];
   }, [jobRecommendations, report]);
 
-  async function handleAnalyze() {
-    if (!selectedFile) {
-      setStatus("Upload a resume before starting the analysis.");
-      return;
-    }
-     if (!canAnalyzeResume()) {
-      setIsLoading(false);
-      setJobsLoading(false);
-  setAnalysisStage("idle");
-  setStatus(
-    "You have used today’s free resume analysis. Upgrade to Pro for unlimited analyses, job matches, resume tailoring and premium exports."
-  );
-  return;
-}
 
-    trackEvent("analysis_started", {
-      file_type: selectedFile.name.split(".").pop()?.toLowerCase() || "unknown",
-      file_size_kb: Math.round(selectedFile.size / 1024),
+async function handleAnalyze() {
+  if (authStatus === "loading") return;
+
+  if (!session) {
+    await signIn("google");
+    return;
+  }
+
+  if (!selectedFile) {
+    setStatus("Upload a resume before starting the analysis.");
+    return;
+  }
+
+  trackEvent("analysis_started", {
+    file_type: selectedFile.name.split(".").pop()?.toLowerCase() || "unknown",
+    file_size_kb: Math.round(selectedFile.size / 1024),
+  });
+
+  try {
+    setIsLoading(true);
+    setReport(null);
+    setJobRecommendations([]);
+    setActiveTab("overview");
+
+    setAnalysisStage("uploading");
+    setStatus("Uploading your resume...");
+
+    const formData = new FormData();
+    formData.append("resume", selectedFile);
+
+    window.setTimeout(() => {
+      setAnalysisStage("extracting");
+      setStatus("Extracting your experience and skills...");
+    }, 700);
+
+    window.setTimeout(() => {
+      setAnalysisStage("evaluating");
+      setStatus("Evaluating ATS and recruiter readiness...");
+    }, 1800);
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
     });
 
-    try {
-      setIsLoading(true);
-      setReport(null);
-      setJobRecommendations([]);
-      setActiveTab("overview");
+    const data = await response.json();
 
-      setAnalysisStage("uploading");
-      setStatus("Uploading your resume...");
-
-      const formData = new FormData();
-      formData.append("resume", selectedFile);
-
-      window.setTimeout(() => {
-        setAnalysisStage("extracting");
-        setStatus("Extracting your experience and skills...");
-      }, 700);
-
-      window.setTimeout(() => {
-        setAnalysisStage("evaluating");
-        setStatus("Evaluating ATS and recruiter readiness...");
-      }, 1800);
-  
-
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        trackEvent("analysis_failed", {
-          failure_type: "api_response",
-          status_code: response.status,
-        });
-
-        setAnalysisStage("idle");
-        setStatus(data.message || "Resume analysis failed.");
-        return;
-      }
-      recordSuccessfulAnalysis();
-
-      const reportData: Report = {
-        success: true,
-        message: data.message || "Resume analyzed successfully.",
-        fileName: data.fileName || selectedFile.name,
-
-        candidateName:
-          typeof data.candidateName === "string"
-            ? data.candidateName.trim()
-            : "",
-
-        headline:
-          typeof data.headline === "string"
-            ? data.headline.trim()
-            : "Professional Candidate",
-
-        contact:
-          data.contact && typeof data.contact === "object"
-            ? {
-                email:
-                  typeof data.contact.email === "string"
-                    ? data.contact.email.trim()
-                    : "",
-                phone:
-                  typeof data.contact.phone === "string"
-                    ? data.contact.phone.trim()
-                    : "",
-                location:
-                  typeof data.contact.location === "string"
-                    ? data.contact.location.trim()
-                    : "",
-                linkedin:
-                  typeof data.contact.linkedin === "string"
-                    ? data.contact.linkedin.trim()
-                    : "",
-              }
-            : {
-                email: "",
-                phone: "",
-                location: "",
-                linkedin: "",
-              },
-
-        atsScore: Number(data.atsScore) || 0,
-        recruiterScore: Number(data.recruiterScore) || 0,
-        hiringProbability: data.hiringProbability || "Medium",
-        roast: data.roast || "No recruiter feedback generated.",
-
-        strengths: Array.isArray(data.strengths)
-          ? data.strengths
-          : [],
-
-        weaknesses: Array.isArray(data.weaknesses)
-          ? data.weaknesses
-          : [],
-
-        missingKeywords: Array.isArray(data.missingKeywords)
-          ? data.missingKeywords
-          : [],
-
-        improvedSummary:
-          data.improvedSummary || "No improved summary generated.",
-
-        rewrittenBullets: Array.isArray(data.rewrittenBullets)
-          ? data.rewrittenBullets
-          : [],
-
-        optimizedSkills: Array.isArray(data.optimizedSkills)
-          ? data.optimizedSkills
-          : [],
-
-        interviewQuestions: Array.isArray(data.interviewQuestions)
-          ? data.interviewQuestions
-          : [],
-
-        experience: Array.isArray(data.experience)
-          ? data.experience
-          : [],
-
-        education: Array.isArray(data.education)
-          ? data.education
-          : [],
-
-        certifications: Array.isArray(data.certifications)
-          ? data.certifications
-          : [],
-
-        projects: Array.isArray(data.projects)
-          ? data.projects
-          : [],
-
-        jobMatches: Array.isArray(data.jobMatches)
-  ? limitJobMatches(data.jobMatches)
-  : [],
-      };
-
-      setReport(reportData);
-      saveReport(reportData, selectedFile.name);
-
-      setAnalysisStage("matching");
-      setStatus("Finding relevant opportunities...");
-      setJobsLoading(true);
-
-      try {
-        const jobsResponse = await fetch("/api/jobs", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            report: reportData,
-          }),
-        });
-
-        const jobs = await jobsResponse.json();
-
-        if (Array.isArray(jobs)) {
-          setJobRecommendations(jobs);
-
-          trackEvent("job_matches_generated", {
-            job_matches_count: jobs.length,
-          });
-        }
-      } catch (error) {
-        console.error("Job recommendation error:", error);
-      } finally {
-        setJobsLoading(false);
-      }
-
-      setAnalysisStage("complete");
-      setStatus("Analysis complete.");
-
-      trackEvent("analysis_completed", {
-        ats_score: reportData.atsScore,
-        recruiter_score: reportData.recruiterScore,
-        hiring_probability: reportData.hiringProbability,
-        job_matches_count: reportData.jobMatches.length,
-      });
-    } catch (error) {
-      console.error("Resume analysis error:", error);
-
+    if (!response.ok || !data.success) {
       trackEvent("analysis_failed", {
-        failure_type: "unexpected_error",
+        failure_type: "api_response",
+        status_code: response.status,
       });
 
       setAnalysisStage("idle");
-      setStatus("Something went wrong. Please try again.");
-    } finally {
-      setIsLoading(false);
+
+      if (response.status === 401) {
+        setStatus("Your session has expired. Please sign in again.");
+        await signIn("google");
+        return;
+      }
+
+      setStatus(data.message || "Resume analysis failed.");
+      return;
     }
+
+    const reportData: Report = {
+      success: true,
+      message: data.message || "Resume analyzed successfully.",
+      fileName: data.fileName || selectedFile.name,
+
+      candidateName:
+        typeof data.candidateName === "string"
+          ? data.candidateName.trim()
+          : "",
+
+      headline:
+        typeof data.headline === "string"
+          ? data.headline.trim()
+          : "Professional Candidate",
+
+      contact:
+        data.contact && typeof data.contact === "object"
+          ? {
+              email:
+                typeof data.contact.email === "string"
+                  ? data.contact.email.trim()
+                  : "",
+              phone:
+                typeof data.contact.phone === "string"
+                  ? data.contact.phone.trim()
+                  : "",
+              location:
+                typeof data.contact.location === "string"
+                  ? data.contact.location.trim()
+                  : "",
+              linkedin:
+                typeof data.contact.linkedin === "string"
+                  ? data.contact.linkedin.trim()
+                  : "",
+            }
+          : {
+              email: "",
+              phone: "",
+              location: "",
+              linkedin: "",
+            },
+
+      atsScore: Number(data.atsScore) || 0,
+      recruiterScore: Number(data.recruiterScore) || 0,
+      hiringProbability: data.hiringProbability || "Medium",
+      roast: data.roast || "No recruiter feedback generated.",
+
+      strengths: Array.isArray(data.strengths)
+        ? data.strengths
+        : [],
+
+      weaknesses: Array.isArray(data.weaknesses)
+        ? data.weaknesses
+        : [],
+
+      missingKeywords: Array.isArray(data.missingKeywords)
+        ? data.missingKeywords
+        : [],
+
+      improvedSummary:
+        data.improvedSummary || "No improved summary generated.",
+
+      rewrittenBullets: Array.isArray(data.rewrittenBullets)
+        ? data.rewrittenBullets
+        : [],
+
+      optimizedSkills: Array.isArray(data.optimizedSkills)
+        ? data.optimizedSkills
+        : [],
+
+      interviewQuestions: Array.isArray(data.interviewQuestions)
+        ? data.interviewQuestions
+        : [],
+
+      experience: Array.isArray(data.experience)
+        ? data.experience
+        : [],
+
+      education: Array.isArray(data.education)
+        ? data.education
+        : [],
+
+      certifications: Array.isArray(data.certifications)
+        ? data.certifications
+        : [],
+
+      projects: Array.isArray(data.projects)
+        ? data.projects
+        : [],
+
+      jobMatches: Array.isArray(data.jobMatches)
+        ? limitJobMatches(data.jobMatches)
+        : [],
+    };
+
+    setReport(reportData);
+    saveReport(reportData, selectedFile.name);
+
+    setAnalysisStage("matching");
+    setStatus("Finding relevant opportunities...");
+    setJobsLoading(true);
+
+    try {
+      const jobsResponse = await fetch("/api/jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          report: reportData,
+        }),
+      });
+
+      const jobs = await jobsResponse.json();
+
+      if (Array.isArray(jobs)) {
+        setJobRecommendations(jobs);
+
+        trackEvent("job_matches_generated", {
+          job_matches_count: jobs.length,
+        });
+      }
+    } catch (error) {
+      console.error("Job recommendation error:", error);
+    } finally {
+      setJobsLoading(false);
+    }
+
+    setAnalysisStage("complete");
+    setStatus("Analysis complete.");
+
+    trackEvent("analysis_completed", {
+      ats_score: reportData.atsScore,
+      recruiter_score: reportData.recruiterScore,
+      hiring_probability: reportData.hiringProbability,
+      job_matches_count: reportData.jobMatches.length,
+    });
+  } catch (error) {
+    console.error("Resume analysis error:", error);
+
+    trackEvent("analysis_failed", {
+      failure_type: "unexpected_error",
+    });
+
+    setAnalysisStage("idle");
+    setStatus("Something went wrong. Please try again.");
+  } finally {
+    setIsLoading(false);
   }
+}
 
   function saveReport(reportData: Report, resumeName: string) {
     try {

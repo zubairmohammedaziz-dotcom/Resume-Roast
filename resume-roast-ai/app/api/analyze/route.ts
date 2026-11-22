@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import openai from "../../../lib/openai";
 
 export const runtime = "nodejs";
@@ -829,7 +832,20 @@ Before returning the response, silently verify:
 `;
 
 export async function POST(req: NextRequest) {
+  let claimedFreeClaimId: string | null = null;
+
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    const email = session?.user?.email?.trim().toLowerCase();
+
+    if (!userId || !email) {
+      return NextResponse.json(
+        { success: false, code: "AUTH_REQUIRED", message: "Please sign in with Google before analyzing your resume." },
+        { status: 401 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("resume");
 
@@ -861,6 +877,61 @@ export async function POST(req: NextRequest) {
         },
         { status: 413 }
       );
+    }
+
+    const { data: subscriptions, error: subscriptionError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_email", email)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (subscriptionError) {
+      console.error("Subscription lookup failed:", subscriptionError);
+      return NextResponse.json(
+        { success: false, message: "Unable to verify your subscription. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    const subscription = subscriptions?.[0];
+    const plan = String(subscription?.plan ?? "").trim().toLowerCase();
+    const status = String(subscription?.status ?? "").trim().toLowerCase();
+    const periodEnd = subscription?.current_period_end
+      ? new Date(subscription.current_period_end).getTime()
+      : null;
+
+    const isPro =
+      ["pro", "pro_monthly"].includes(plan) &&
+      ["active", "authenticated"].includes(status) &&
+      (periodEnd === null || (!Number.isNaN(periodEnd) && periodEnd > Date.now()));
+
+    if (!isPro) {
+      const { data: claimed, error: claimError } = await supabaseAdmin.rpc(
+        "claim_free_analysis_v2",
+        { p_user_id: userId }
+      );
+
+      if (claimError) {
+        console.error("Free analysis claim failed:", claimError);
+        return NextResponse.json(
+          { success: false, message: "Unable to verify your free analysis. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      if (typeof claimed !== 'string' || !claimed) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "FREE_ANALYSIS_USED",
+            message: "Your one free resume analysis has been used. Upgrade to Pro for unlimited analyses."
+          },
+          { status: 403 }
+        );
+      }
+
+      claimedFreeClaimId = claimed;
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -1035,6 +1106,21 @@ Return only the structured result required by the schema.
       jobMatches,
     });
   } catch (error) {
+    if (claimedFreeClaimId) {
+      const { error: releaseError } = await supabaseAdmin
+        .from("user_usage")
+        .update({
+          free_analysis_used: false,
+          free_analysis_claim_id: null
+        })
+        .eq("free_analysis_claim_id", claimedFreeClaimId)
+        .eq("free_analysis_used", true);
+
+      if (releaseError) {
+        console.error("Failed to release free analysis claim:", releaseError);
+      }
+    }
+
     console.error("AI analysis error:", error);
 
     return NextResponse.json(
