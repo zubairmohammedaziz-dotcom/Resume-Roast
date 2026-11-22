@@ -906,7 +906,10 @@ export async function POST(req: NextRequest) {
       ["active", "authenticated"].includes(status) &&
       (periodEnd === null || (!Number.isNaN(periodEnd) && periodEnd > Date.now()));
 
-    if (!isPro) {
+    const isAdmin =
+      email === (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+
+    if (!isPro && !isAdmin) {
       const { data: claimed, error: claimError } = await supabaseAdmin.rpc(
         "claim_free_analysis_v2",
         { p_user_id: userId }
